@@ -1,0 +1,16 @@
+﻿using LeaveManagementSystem.Application.LeaveRequests.Dtos;
+
+namespace LeaveManagementSystem.Application.LeaveRequests.Services;
+
+public interface ILeaveRequestService
+{
+    Task<IReadOnlyList<LeaveRequestDto>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    Task<LeaveRequestDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<LeaveRequestDto> CreateAsync(CreateLeaveRequestRequest request, CancellationToken cancellationToken = default);
+
+    Task<LeaveRequestDto?> UpdateAsync(Guid id, UpdateLeaveRequestRequest request, CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+}
