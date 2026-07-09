@@ -1,681 +1,340 @@
-\# Personel Ä°zin YÃ¶netim Sistemi
+# Personel Izin Yonetim Sistemi
 
+Personel Izin Yonetim Sistemi, calisanlarin izin taleplerini yonetmek icin gelistirilen bir backend API projesidir. Proje; ASP.NET Core Web API, Entity Framework Core, PostgreSQL ve Clean Architecture prensiplerine uygun katmanli bir yapi ile gelistirilmektedir.
 
+Bu repository, staj projesi kapsaminda fazlara ayrilmis sekilde gelistirilmektedir. Mevcut durumda Faz 1 kapsaminda temel mimari yapi, veritabani altyapisi, domain modeli, varsayilan izin turleri ve temel CRUD endpointleri tamamlanmistir.
 
-Personel Ä°zin YÃ¶netim Sistemi, Ã§alÄ±ÅŸanlarÄ±n izin taleplerini yÃ¶netmek iÃ§in geliÅŸtirilen bir backend API projesidir. Proje; ASP.NET Core Web API, Entity Framework Core, PostgreSQL ve Clean Architecture prensiplerine uygun katmanlÄ± bir yapÄ± ile geliÅŸtirilmektedir.
+---
 
-
-
-Bu repository, staj projesi kapsamÄ±nda fazlara ayrÄ±lmÄ±ÅŸ ÅŸekilde geliÅŸtirilmektedir. Mevcut durumda Faz 1 kapsamÄ±nda temel mimari yapÄ±, veritabanÄ± altyapÄ±sÄ±, domain modeli ve temel CRUD endpointleri tamamlanmÄ±ÅŸtÄ±r.
-
-
-
-\---
-
-
-
-\## Proje Durumu
-
-
+## Proje Durumu
 
 | Faz | Kapsam | Durum |
-
 |---|---|---|
+| Faz 1 | Temel mimari, entity yapisi, EF Core, migration, seed data ve temel CRUD endpointleri | Tamamlandi |
+| Faz 2 | Is kurallari, validasyon, izin hakki ve onay kurallari | Planlandi |
+| Faz 3 | CQRS, MediatR, JWT authentication, authorization ve raporlama | Planlandi |
+| Faz 4 | Gelismis testler, final dokumantasyon ve teslim hazirligi | Planlandi |
 
-| Faz 1 | Temel mimari, entity yapÄ±sÄ±, EF Core, migration, temel CRUD endpointleri | TamamlandÄ± |
+---
 
-| Faz 2 | Ä°ÅŸ kurallarÄ±, validasyon, izin hakkÄ± ve onay kurallarÄ± | PlanlandÄ± |
+## Faz 1 Kapsaminda Tamamlananlar
 
-| Faz 3 | CQRS, MediatR, JWT authentication, authorization ve raporlama | PlanlandÄ± |
+- Domain, Application, Infrastructure ve WebAPI katmanlari olusturuldu.
+- `Employee`, `Department`, `LeaveType` ve `LeaveRequest` entity'leri tanimlandi.
+- `Employee` entity'sinde `ManagerId` ile self-referencing yonetici iliskisi kuruldu.
+- Entity Framework Core `DbContext` yapisi olusturuldu.
+- PostgreSQL baglantisi yapilandirildi.
+- Ilk migration olusturuldu ve basariyla uygulandi.
+- Varsayilan `LeaveType` kayitlari migration ile seed data olarak eklendi.
+- Local gelistirme ortami icin Docker Compose ile PostgreSQL kurulumu eklendi.
+- Employee icin temel CRUD endpointleri yazildi.
+- LeaveRequest icin temel CRUD endpointleri yazildi.
+- Swagger UI ile API endpointleri test edilebilir hale getirildi.
+- Temel integration test projesi olusturuldu.
+- Faz 1 endpointleri Swagger UI uzerinden manuel olarak test edildi.
 
-| Faz 4 | GeliÅŸmiÅŸ testler, final dokÃ¼mantasyon ve teslim hazÄ±rlÄ±ÄŸÄ± | PlanlandÄ± |
+---
 
+## Mimari Yapi
 
-
-\---
-
-
-
-\## Faz 1 KapsamÄ±nda Tamamlananlar
-
-
-
-\- Domain, Application, Infrastructure ve WebAPI katmanlarÄ± oluÅŸturuldu.
-
-\- `Employee`, `Department`, `LeaveType` ve `LeaveRequest` entity'leri tanÄ±mlandÄ±.
-
-\- `Employee` entity'sinde `ManagerId` ile self-referencing yÃ¶netici iliÅŸkisi kuruldu.
-
-\- Entity Framework Core `DbContext` yapÄ±sÄ± oluÅŸturuldu.
-
-\- PostgreSQL baÄŸlantÄ±sÄ± yapÄ±landÄ±rÄ±ldÄ±.
-
-\- Ä°lk migration oluÅŸturuldu ve baÅŸarÄ±yla uygulandÄ±.
-
-\- Local geliÅŸtirme ortamÄ± iÃ§in Docker Compose ile PostgreSQL kurulumu eklendi.
-
-\- Employee iÃ§in temel CRUD endpointleri yazÄ±ldÄ±.
-
-\- LeaveRequest iÃ§in temel CRUD endpointleri yazÄ±ldÄ±.
-
-\- Swagger UI ile API endpointleri test edilebilir hale getirildi.
-
-\- Temel integration test projesi oluÅŸturuldu.
-
-\- Faz 1 endpointleri Swagger UI Ã¼zerinden manuel olarak test edildi.
-
-
-
-\---
-
-
-
-\## Mimari YapÄ±
-
-
-
-Proje Clean Architecture prensiplerine uygun katmanlÄ± bir yapÄ± kullanmaktadÄ±r.
-
-
+Proje Clean Architecture prensiplerine uygun katmanli bir yapi kullanmaktadir.
 
 ```text
-
 src/
-
-&#x20; LeaveManagementSystem.Domain
-
-&#x20; LeaveManagementSystem.Application
-
-&#x20; LeaveManagementSystem.Infrastructure
-
-&#x20; LeaveManagementSystem.WebAPI
-
-
+  LeaveManagementSystem.Domain
+  LeaveManagementSystem.Application
+  LeaveManagementSystem.Infrastructure
+  LeaveManagementSystem.WebAPI
 
 tests/
-
-&#x20; LeaveManagementSystem.IntegrationTests
-
+  LeaveManagementSystem.IntegrationTests
 ```
 
-
-
-\### KatmanlarÄ±n SorumluluklarÄ±
-
-
+### Katmanlarin Sorumluluklari
 
 | Katman | Sorumluluk |
-
 |---|---|
-
-| Domain | Temel entity'ler, enum'lar ve Ã§ekirdek iÅŸ modeli |
-
+| Domain | Temel entity'ler, enum'lar ve cekirdek is modeli |
 | Application | DTO'lar ve servis interface'leri |
-
-| Infrastructure | EF Core, PostgreSQL, DbContext ve servis implementasyonlarÄ± |
-
-| WebAPI | Controller'lar, HTTP endpointleri ve Swagger konfigÃ¼rasyonu |
-
+| Infrastructure | EF Core, PostgreSQL, DbContext ve servis implementasyonlari |
+| WebAPI | Controller'lar, HTTP endpointleri ve Swagger konfigurasyonu |
 | IntegrationTests | API seviyesinde integration testler |
 
-
-
-Mevcut request akÄ±ÅŸÄ±:
-
-
+Mevcut request akisi:
 
 ```text
-
 Controller
-
-&#x20; -> Application service interface
-
-&#x20;   -> Infrastructure service implementation
-
-&#x20;     -> AppDbContext
-
-&#x20;       -> PostgreSQL
-
+  -> Application service interface
+    -> Infrastructure service implementation
+      -> AppDbContext
+        -> PostgreSQL
 ```
 
+Bu yapi sayesinde WebAPI katmani dogrudan `AppDbContext` ile calismaz. Controller'lar Application katmanindaki servis interface'leri uzerinden islem yapar.
 
+---
 
-Bu yapÄ± sayesinde WebAPI katmanÄ± doÄŸrudan `AppDbContext` ile Ã§alÄ±ÅŸmaz. Controller'lar Application katmanÄ±ndaki servis interface'leri Ã¼zerinden iÅŸlem yapar.
+## Kullanilan Teknolojiler
 
+- C#
+- .NET 10
+- ASP.NET Core Web API
+- Entity Framework Core
+- PostgreSQL
+- Docker Compose
+- Swagger / Swashbuckle
+- xUnit
+- Git / GitHub
 
+---
 
-\---
+## Domain Model Ozeti
 
+### Employee
 
+Calisan bilgisini temsil eder.
 
-\## KullanÄ±lan Teknolojiler
+One cikan alanlar:
 
+- `FirstName`
+- `LastName`
+- `Email`
+- `DepartmentId`
+- `ManagerId`
+- `Role`
+- `IsActive`
 
-
-\- C#
-
-\- .NET 10
-
-\- ASP.NET Core Web API
-
-\- Entity Framework Core
-
-\- PostgreSQL
-
-\- Docker Compose
-
-\- Swagger / Swashbuckle
-
-\- xUnit
-
-\- Git / GitHub
-
-
-
-\---
-
-
-
-\## Domain Model Ã–zeti
-
-
-
-\### Employee
-
-
-
-Ã‡alÄ±ÅŸan bilgisini temsil eder.
-
-
-
-Ã–ne Ã§Ä±kan alanlar:
-
-
-
-\- `FirstName`
-
-\- `LastName`
-
-\- `Email`
-
-\- `DepartmentId`
-
-\- `ManagerId`
-
-\- `Role`
-
-\- `IsActive`
-
-
-
-`ManagerId` alanÄ± ile aynÄ± tablo Ã¼zerinde self-referencing iliÅŸki kurulmuÅŸtur. BÃ¶ylece bir Ã§alÄ±ÅŸan baÅŸka bir Ã§alÄ±ÅŸanÄ±n yÃ¶neticisi olabilir.
-
-
+`ManagerId` alani ile ayni tablo uzerinde self-referencing iliski kurulmustur. Boylece bir calisan baska bir calisanin yoneticisi olabilir.
 
 ```text
-
 Employee
-
-&#x20; -> Manager
-
-&#x20; -> DirectReports
-
+  -> Manager
+  -> DirectReports
 ```
 
+Employee silme islemi su an soft delete olarak uygulanmaktadir. Yani calisan veritabanindan fiziksel olarak silinmez, `IsActive` degeri `false` yapilir.
 
+### Department
 
-Employee silme iÅŸlemi ÅŸu an soft delete olarak uygulanmaktadÄ±r. Yani Ã§alÄ±ÅŸan veritabanÄ±ndan fiziksel olarak silinmez, `IsActive` deÄŸeri `false` yapÄ±lÄ±r.
+Calisanin bagli oldugu departmani temsil eder.
 
+### LeaveType
 
-
-\### Department
-
-
-
-Ã‡alÄ±ÅŸanÄ±n baÄŸlÄ± olduÄŸu departmanÄ± temsil eder.
-
-
-
-\### LeaveType
-
-
-
-Ä°zin tÃ¼rÃ¼nÃ¼ temsil eder.
-
-
-
-Ã–rnek izin tÃ¼rleri:
-
-
+Izin turunu temsil eder. Varsayilan izin turleri migration ile veritabanina eklenmektedir:
 
 ```text
-
 Annual Leave
-
 Sick Leave
-
 Unpaid Leave
-
 ```
 
+### LeaveRequest
 
+Bir calisanin izin talebini temsil eder.
 
-\### LeaveRequest
+One cikan alanlar:
 
+- `EmployeeId`
+- `LeaveTypeId`
+- `StartDate`
+- `EndDate`
+- `RequestedDays`
+- `Status`
+- `Reason`
+- `ManagerComment`
+- `ReviewedAtUtc`
+- `ReviewedByEmployeeId`
 
+Yeni olusturulan izin talepleri varsayilan olarak `Pending` durumunda baslar. `RequestedDays` degeri tarih araligina gore otomatik hesaplanir.
 
-Bir Ã§alÄ±ÅŸanÄ±n izin talebini temsil eder.
+---
 
+## Gereksinimler
 
+Projeyi calistirmak icin asagidaki araclarin kurulu olmasi gerekir:
 
-Ã–ne Ã§Ä±kan alanlar:
+- .NET 10 SDK
+- Docker Desktop
+- Git
+- DBeaver, pgAdmin veya benzeri bir veritabani araci
 
-
-
-\- `EmployeeId`
-
-\- `LeaveTypeId`
-
-\- `StartDate`
-
-\- `EndDate`
-
-\- `RequestedDays`
-
-\- `Status`
-
-\- `Reason`
-
-\- `ManagerComment`
-
-\- `ReviewedAtUtc`
-
-\- `ReviewedByEmployeeId`
-
-
-
-Yeni oluÅŸturulan izin talepleri varsayÄ±lan olarak `Pending` durumunda baÅŸlar. `RequestedDays` deÄŸeri tarih aralÄ±ÄŸÄ±na gÃ¶re otomatik hesaplanÄ±r.
-
-
-
-\---
-
-
-
-\## Gereksinimler
-
-
-
-Projeyi Ã§alÄ±ÅŸtÄ±rmak iÃ§in aÅŸaÄŸÄ±daki araÃ§larÄ±n kurulu olmasÄ± gerekir:
-
-
-
-\- .NET 10 SDK
-
-\- Docker Desktop
-
-\- Git
-
-\- DBeaver, pgAdmin veya benzeri bir veritabanÄ± aracÄ±
-
-
-
-Entity Framework CLI yÃ¼klÃ¼ deÄŸilse aÅŸaÄŸÄ±daki komut ile kurulabilir:
-
-
+Entity Framework CLI yuklu degilse asagidaki komut ile kurulabilir:
 
 ```bash
-
 dotnet tool install --global dotnet-ef
-
 ```
 
+---
 
+## Projeyi Calistirma
 
-\---
+Asagidaki komutlar repository ana dizininde calistirilmalidir.
 
-
-
-\## Projeyi Ã‡alÄ±ÅŸtÄ±rma
-
-
-
-AÅŸaÄŸÄ±daki komutlar repository ana dizininde Ã§alÄ±ÅŸtÄ±rÄ±lmalÄ±dÄ±r.
-
-
-
-\### 1. Repository'yi klonlama
-
-
+### 1. Repository'yi klonlama
 
 ```bash
-
 git clone <repository-url>
-
 cd leave-management-system
-
 ```
 
-
-
-\### 2. PostgreSQL'i Docker Compose ile baÅŸlatma
-
-
+### 2. PostgreSQL'i Docker Compose ile baslatma
 
 ```bash
-
 docker compose up -d
-
 ```
 
-
-
-Local PostgreSQL baÄŸlantÄ± bilgileri:
-
-
+Local PostgreSQL baglanti bilgileri:
 
 ```text
-
 Host: localhost
-
 Port: 5432
-
-Database: leave\_management\_db
-
+Database: leave_management_db
 Username: postgres
-
 Password: postgres
-
 ```
 
-
-
-\### 3. Migration'larÄ± uygulama
-
-
+### 3. Migration'lari uygulama
 
 ```bash
-
 dotnet ef database update --project src/LeaveManagementSystem.Infrastructure --startup-project src/LeaveManagementSystem.WebAPI
-
 ```
 
-
-
-\### 4. Web API'yi Ã§alÄ±ÅŸtÄ±rma
-
-
+### 4. Web API'yi calistirma
 
 ```bash
-
 dotnet run --project src/LeaveManagementSystem.WebAPI
-
 ```
 
-
-
-Uygulama Ã§alÄ±ÅŸtÄ±ktan sonra Swagger UI aÅŸaÄŸÄ±daki adresten aÃ§Ä±labilir:
-
-
+Uygulama calistiktan sonra Swagger UI asagidaki adresten acilabilir:
 
 ```text
-
 http://localhost:5252/swagger
-
 ```
 
+Uygulama farkli bir portta baslarsa terminalde gorunen URL kullanilmali ve sonuna `/swagger` eklenmelidir.
 
+---
 
-Uygulama farklÄ± bir portta baÅŸlarsa terminalde gÃ¶rÃ¼nen URL kullanÄ±lmalÄ± ve sonuna `/swagger` eklenmelidir.
+## API Endpointleri
 
+### Employees
 
-
-\---
-
-
-
-\## API Endpointleri
-
-
-
-\### Employees
-
-
-
-| Method | Endpoint | AÃ§Ä±klama |
-
+| Method | Endpoint | Aciklama |
 |---|---|---|
+| GET | `/api/employees` | Tum calisanlari listeler |
+| GET | `/api/employees/{id}` | Id'ye gore calisan getirir |
+| POST | `/api/employees` | Yeni calisan olusturur |
+| PUT | `/api/employees/{id}` | Calisan bilgilerini gunceller |
+| DELETE | `/api/employees/{id}` | Calisani pasif hale getirir |
 
-| GET | `/api/employees` | TÃ¼m Ã§alÄ±ÅŸanlarÄ± listeler |
+### Leave Requests
 
-| GET | `/api/employees/{id}` | Id'ye gÃ¶re Ã§alÄ±ÅŸan getirir |
-
-| POST | `/api/employees` | Yeni Ã§alÄ±ÅŸan oluÅŸturur |
-
-| PUT | `/api/employees/{id}` | Ã‡alÄ±ÅŸan bilgilerini gÃ¼nceller |
-
-| DELETE | `/api/employees/{id}` | Ã‡alÄ±ÅŸanÄ± pasif hale getirir |
-
-
-
-\### Leave Requests
-
-
-
-| Method | Endpoint | AÃ§Ä±klama |
-
+| Method | Endpoint | Aciklama |
 |---|---|---|
+| GET | `/api/leave-requests` | Tum izin taleplerini listeler |
+| GET | `/api/leave-requests/{id}` | Id'ye gore izin talebi getirir |
+| POST | `/api/leave-requests` | Yeni izin talebi olusturur |
+| PUT | `/api/leave-requests/{id}` | Izin talebini gunceller |
+| DELETE | `/api/leave-requests/{id}` | Izin talebini siler |
 
-| GET | `/api/leave-requests` | TÃ¼m izin taleplerini listeler |
+Not: Su an sadece `Pending` durumundaki izin talepleri guncellenebilir veya silinebilir.
 
-| GET | `/api/leave-requests/{id}` | Id'ye gÃ¶re izin talebi getirir |
+---
 
-| POST | `/api/leave-requests` | Yeni izin talebi oluÅŸturur |
+## Ornek Request Body'leri
 
-| PUT | `/api/leave-requests/{id}` | Ä°zin talebini gÃ¼nceller |
-
-| DELETE | `/api/leave-requests/{id}` | Ä°zin talebini siler |
-
-
-
-Not: Åžu an sadece `Pending` durumundaki izin talepleri gÃ¼ncellenebilir veya silinebilir.
-
-
-
-\---
-
-
-
-\## Ã–rnek Request Body'leri
-
-
-
-\### Employee OluÅŸturma
-
-
+### Employee Olusturma
 
 ```json
-
 {
-
-&#x20; "firstName": "John",
-
-&#x20; "lastName": "Doe",
-
-&#x20; "email": "john.doe@example.com",
-
-&#x20; "departmentId": "11111111-1111-1111-1111-111111111111",
-
-&#x20; "managerId": null,
-
-&#x20; "role": 0
-
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "departmentId": "11111111-1111-1111-1111-111111111111",
+  "managerId": null,
+  "role": 0
 }
-
 ```
 
-
-
-\### LeaveRequest OluÅŸturma
-
-
+### LeaveRequest Olusturma
 
 ```json
-
 {
-
-&#x20; "employeeId": "22222222-2222-2222-2222-222222222222",
-
-&#x20; "leaveTypeId": "33333333-3333-3333-3333-333333333333",
-
-&#x20; "startDate": "2026-07-15",
-
-&#x20; "endDate": "2026-07-17",
-
-&#x20; "reason": "Annual leave request."
-
+  "employeeId": "22222222-2222-2222-2222-222222222222",
+  "leaveTypeId": "10000000-0000-0000-0000-000000000001",
+  "startDate": "2026-07-15",
+  "endDate": "2026-07-17",
+  "reason": "Annual leave request."
 }
-
 ```
 
+Not: LeaveRequest olusturmak icin veritabaninda gecerli bir `Employee` kaydi bulunmalidir. Varsayilan `LeaveType` kayitlari migration ile otomatik eklenmektedir.
 
+---
 
-Not: LeaveRequest oluÅŸturmak iÃ§in veritabanÄ±nda geÃ§erli bir `Employee` ve `LeaveType` kaydÄ± bulunmalÄ±dÄ±r. VarsayÄ±lan LeaveType seed data eklenmesi sonraki kalite iyileÅŸtirme adÄ±mlarÄ±ndan biridir.
+## Testleri Calistirma
 
-
-
-\---
-
-
-
-\## Testleri Ã‡alÄ±ÅŸtÄ±rma
-
-
-
-TÃ¼m testleri Ã§alÄ±ÅŸtÄ±rmak iÃ§in:
-
-
+Tum testleri calistirmak icin:
 
 ```bash
-
 dotnet test
-
 ```
 
-
-
-Tam local kontrol iÃ§in:
-
-
+Tam local kontrol icin:
 
 ```bash
-
 dotnet build
-
 dotnet test
-
 git diff --check
-
 git status
-
 ```
 
+---
 
+## Gelistirme Workflow'u
 
-\---
-
-
-
-\## GeliÅŸtirme Workflow'u
-
-
-
-Projede branch bazlÄ± geliÅŸtirme akÄ±ÅŸÄ± kullanÄ±lmaktadÄ±r.
-
-
+Projede branch bazli gelistirme akisi kullanilmaktadir.
 
 ```text
-
 main      -> stabil branch
-
-develop   -> aktif geliÅŸtirme branch'i
-
-feature/\* -> belirli iÅŸler iÃ§in aÃ§Ä±lan branch'ler
-
+develop   -> aktif gelistirme branch'i
+feature/* -> belirli isler icin acilan branch'ler
 ```
 
-
-
-Tipik geliÅŸtirme akÄ±ÅŸÄ±:
-
-
+Tipik gelistirme akisi:
 
 ```text
-
 develop
-
-&#x20; -> feature branch
-
-&#x20;   -> implementation
-
-&#x20;   -> build ve test
-
-&#x20;   -> develop iÃ§ine merge
-
+  -> feature branch
+    -> implementation
+    -> build ve test
+    -> develop icine merge
 ```
 
+`main` branch'i her kucuk gelistirme icin kullanilmamaktadir. Stabil bir surum hazir oldugunda veya ozellikle gerekli oldugunda guncellenir.
 
+---
 
-`main` branch'i her kÃ¼Ã§Ã¼k geliÅŸtirme iÃ§in kullanÄ±lmamaktadÄ±r. Stabil bir sÃ¼rÃ¼m hazÄ±r olduÄŸunda veya Ã¶zellikle gerekli olduÄŸunda gÃ¼ncellenir.
+## Faz 1 Dogrulama
 
+Faz 1 kapsaminda asagidaki kontroller tamamlanmistir:
 
+- Employee CRUD endpointleri Swagger UI uzerinden test edildi.
+- LeaveRequest CRUD endpointleri Swagger UI uzerinden test edildi.
+- PostgreSQL baglantisi dogrulandi.
+- Initial migration basariyla uygulandi.
+- Varsayilan LeaveType seed data migration ile eklendi.
+- Local test verileri manuel testlerden sonra temizlendi.
+- `dotnet build` basarili calisti.
+- `dotnet test` basarili calisti.
+- `git diff --check` temiz sonuc verdi.
+- Git working tree temiz olarak dogrulandi.
 
-\---
+---
 
+## Planlanan Sonraki Iyilestirmeler
 
+Faz 1 sonrasi kalite iyilestirmeleri:
 
-\## Faz 1 DoÄŸrulama
-
-
-
-Faz 1 kapsamÄ±nda aÅŸaÄŸÄ±daki kontroller tamamlanmÄ±ÅŸtÄ±r:
-
-
-
-\- Employee CRUD endpointleri Swagger UI Ã¼zerinden test edildi.
-
-\- LeaveRequest CRUD endpointleri Swagger UI Ã¼zerinden test edildi.
-
-\- PostgreSQL baÄŸlantÄ±sÄ± doÄŸrulandÄ±.
-
-\- Initial migration baÅŸarÄ±yla uygulandÄ±.
-
-\- Local test verileri manuel testlerden sonra temizlendi.
-
-\- `dotnet build` baÅŸarÄ±lÄ± Ã§alÄ±ÅŸtÄ±.
-
-\- `dotnet test` baÅŸarÄ±lÄ± Ã§alÄ±ÅŸtÄ±.
-
-\- `git diff --check` temiz sonuÃ§ verdi.
-
-\- Git working tree temiz olarak doÄŸrulandÄ±.
-
-
-
-\---
-
-
-
-\## Planlanan Sonraki Ä°yileÅŸtirmeler
-
-
-
-Faz 1 sonrasÄ± kalite iyileÅŸtirmeleri:
-
-
-
-\- VarsayÄ±lan LeaveType seed data eklenmesi
-
-\- Employee ve LeaveRequest iÃ§in ek CRUD integration testleri
-
-\- README dosyasÄ±nÄ±n sonraki fazlara gÃ¶re gÃ¼ncellenmesi
+- Employee ve LeaveRequest icin ek CRUD integration testleri
+- README dosyasinin sonraki fazlara gore guncellenmesi

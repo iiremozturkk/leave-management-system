@@ -29,5 +29,36 @@ public sealed class LeaveTypeConfiguration : IEntityTypeConfiguration<LeaveType>
             .IsRequired();
 
         builder.Property(leaveType => leaveType.UpdatedAtUtc);
+
+        var seedCreatedAtUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        builder.HasData(
+            new LeaveType
+            {
+                Id = Guid.Parse("10000000-0000-0000-0000-000000000001"),
+                Name = "Annual Leave",
+                DefaultAnnualAllowanceDays = 20,
+                IsPaid = true,
+                CreatedAtUtc = seedCreatedAtUtc,
+                UpdatedAtUtc = null
+            },
+            new LeaveType
+            {
+                Id = Guid.Parse("10000000-0000-0000-0000-000000000002"),
+                Name = "Sick Leave",
+                DefaultAnnualAllowanceDays = 0,
+                IsPaid = true,
+                CreatedAtUtc = seedCreatedAtUtc,
+                UpdatedAtUtc = null
+            },
+            new LeaveType
+            {
+                Id = Guid.Parse("10000000-0000-0000-0000-000000000003"),
+                Name = "Unpaid Leave",
+                DefaultAnnualAllowanceDays = 0,
+                IsPaid = false,
+                CreatedAtUtc = seedCreatedAtUtc,
+                UpdatedAtUtc = null
+            });
     }
 }
