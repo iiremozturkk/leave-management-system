@@ -1,4 +1,4 @@
-# Personel Izin Yonetim Sistemi
+# Personel Izin ve Onay Yonetim Sistemi
 
 Personel Izin Yonetim Sistemi, calisanlarin izin taleplerini yonetmek icin gelistirilen bir backend API projesidir. Proje; ASP.NET Core Web API, Entity Framework Core, PostgreSQL ve Clean Architecture prensiplerine uygun katmanli bir yapi ile gelistirilmektedir.
 
@@ -31,6 +31,7 @@ Bu repository, staj projesi kapsaminda fazlara ayrilmis sekilde gelistirilmekted
 - LeaveRequest icin temel CRUD endpointleri yazildi.
 - Swagger UI ile API endpointleri test edilebilir hale getirildi.
 - Temel integration test projesi olusturuldu.
+- Employee ve LeaveRequest icin CRUD integration testleri eklendi.
 - Faz 1 endpointleri Swagger UI uzerinden manuel olarak test edildi.
 
 ---
@@ -252,7 +253,7 @@ Not: Su an sadece `Pending` durumundaki izin talepleri guncellenebilir veya sili
   "email": "john.doe@example.com",
   "departmentId": "11111111-1111-1111-1111-111111111111",
   "managerId": null,
-  "role": 0
+  "role": 1
 }
 ```
 
@@ -279,6 +280,8 @@ Tum testleri calistirmak icin:
 ```bash
 dotnet test
 ```
+
+Integration testler ayri `leave_management_test_db` veritabani uzerinden calisir. Testler calistirilirken migration'lar bu test veritabanina uygulanir.
 
 Tam local kontrol icin:
 
@@ -319,22 +322,15 @@ develop
 
 Faz 1 kapsaminda asagidaki kontroller tamamlanmistir:
 
-- Employee CRUD endpointleri Swagger UI uzerinden test edildi.
-- LeaveRequest CRUD endpointleri Swagger UI uzerinden test edildi.
+- Employee CRUD endpointleri Swagger UI uzerinden manuel olarak test edildi.
+- LeaveRequest CRUD endpointleri Swagger UI uzerinden manuel olarak test edildi.
+- Employee ve LeaveRequest CRUD integration testleri basariyla calisti.
 - PostgreSQL baglantisi dogrulandi.
 - Initial migration basariyla uygulandi.
 - Varsayilan LeaveType seed data migration ile eklendi.
+- Testler ayri `leave_management_test_db` veritabani uzerinden calistirildi.
 - Local test verileri manuel testlerden sonra temizlendi.
 - `dotnet build` basarili calisti.
 - `dotnet test` basarili calisti.
 - `git diff --check` temiz sonuc verdi.
 - Git working tree temiz olarak dogrulandi.
-
----
-
-## Planlanan Sonraki Iyilestirmeler
-
-Faz 1 sonrasi kalite iyilestirmeleri:
-
-- Employee ve LeaveRequest icin ek CRUD integration testleri
-- README dosyasinin sonraki fazlara gore guncellenmesi
