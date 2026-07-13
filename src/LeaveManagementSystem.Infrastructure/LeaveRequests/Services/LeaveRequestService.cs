@@ -45,7 +45,6 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         {
             EmployeeId = request.EmployeeId,
             LeaveTypeId = request.LeaveTypeId,
-            Status = LeaveRequestStatus.Pending,
             Reason = reason
         };
 
