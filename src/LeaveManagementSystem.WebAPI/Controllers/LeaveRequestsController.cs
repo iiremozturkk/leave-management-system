@@ -1,6 +1,5 @@
 ﻿using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LeaveManagementSystem.WebAPI.Controllers;
@@ -36,18 +35,44 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
         return Ok(leaveRequest);
     }
 
+    [HttpGet("balance")]
+    [ProducesResponseType(typeof(LeaveBalanceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<LeaveBalanceDto>> GetBalance(
+        [FromQuery] Guid employeeId,
+        [FromQuery] Guid leaveTypeId,
+        [FromQuery] int year,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var balance = await leaveRequestService.GetBalanceAsync(
+                employeeId,
+                leaveTypeId,
+                year,
+                cancellationToken);
+
+            if (balance is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(balance);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequestProblem(exception.Message);
+        }
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<LeaveRequestDto>> Create(
-        [FromBody] CreateLeaveRequestRequest? request,
+        CreateLeaveRequestRequest request,
         CancellationToken cancellationToken)
     {
-        if (request is null)
-        {
-            return BadRequestProblem("Request body is required.");
-        }
-
         try
         {
             var leaveRequest = await leaveRequestService.CreateAsync(request, cancellationToken);
@@ -69,17 +94,70 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveRequestDto>> Update(
         Guid id,
-        [FromBody] UpdateLeaveRequestRequest? request,
+        UpdateLeaveRequestRequest request,
         CancellationToken cancellationToken)
     {
-        if (request is null)
-        {
-            return BadRequestProblem("Request body is required.");
-        }
-
         try
         {
             var leaveRequest = await leaveRequestService.UpdateAsync(id, request, cancellationToken);
+
+            if (leaveRequest is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(leaveRequest);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequestProblem(exception.Message);
+        }
+    }
+
+    [HttpPost("{id:guid}/approve")]
+    [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<LeaveRequestDto>> Approve(
+        Guid id,
+        ReviewLeaveRequestRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var leaveRequest = await leaveRequestService.ApproveAsync(
+                id,
+                request,
+                cancellationToken);
+
+            if (leaveRequest is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(leaveRequest);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequestProblem(exception.Message);
+        }
+    }
+
+    [HttpPost("{id:guid}/reject")]
+    [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<LeaveRequestDto>> Reject(
+        Guid id,
+        ReviewLeaveRequestRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var leaveRequest = await leaveRequestService.RejectAsync(
+                id,
+                request,
+                cancellationToken);
 
             if (leaveRequest is null)
             {
