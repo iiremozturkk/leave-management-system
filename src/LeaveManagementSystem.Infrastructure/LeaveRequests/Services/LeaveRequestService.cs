@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Services;
 using LeaveManagementSystem.Domain.Entities;
@@ -428,12 +429,12 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
 
         if (reviewer.Role != EmployeeRole.Manager)
         {
-            throw new InvalidOperationException("Only managers can review leave requests.");
+            throw new ForbiddenOperationException("Only managers can review leave requests.");
         }
 
         if (employee.ManagerId != reviewerEmployeeId)
         {
-            throw new InvalidOperationException(
+            throw new ForbiddenOperationException(
                 "Only the employee's direct manager can review this leave request.");
         }
     }

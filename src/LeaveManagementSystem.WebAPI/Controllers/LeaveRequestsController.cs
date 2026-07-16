@@ -1,4 +1,5 @@
-﻿using LeaveManagementSystem.Application.LeaveRequests.Dtos;
+﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -117,6 +118,7 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
     [HttpPost("{id:guid}/approve")]
     [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveRequestDto>> Approve(
         Guid id,
@@ -137,6 +139,10 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
 
             return Ok(leaveRequest);
         }
+        catch (ForbiddenOperationException exception)
+        {
+            return ForbiddenProblem(exception.Message);
+        }
         catch (InvalidOperationException exception)
         {
             return BadRequestProblem(exception.Message);
@@ -146,6 +152,7 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
     [HttpPost("{id:guid}/reject")]
     [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveRequestDto>> Reject(
         Guid id,
@@ -165,6 +172,10 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
             }
 
             return Ok(leaveRequest);
+        }
+        catch (ForbiddenOperationException exception)
+        {
+            return ForbiddenProblem(exception.Message);
         }
         catch (InvalidOperationException exception)
         {
@@ -205,5 +216,17 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
             Title = "Invalid leave request.",
             Detail = detail
         });
+    }
+
+    private ObjectResult ForbiddenProblem(string detail)
+    {
+        return StatusCode(
+            StatusCodes.Status403Forbidden,
+            new ProblemDetails
+            {
+                Status = StatusCodes.Status403Forbidden,
+                Title = "Forbidden leave request operation.",
+                Detail = detail
+            });
     }
 }
