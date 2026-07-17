@@ -211,22 +211,12 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
                 "2026-08-14",
                 "Manager approval test leave request.");
 
-            var reviewRequest = new
-            {
-                reviewerEmployeeId = testData.ManagerId,
-                managerComment = "Approved by direct manager."
-            };
+            var approvedLeaveRequest = await ApproveLeaveRequestAsync(
+                leaveRequest.Id,
+                testData.ManagerId,
+                "Approved by direct manager.");
 
-            var approveResponse = await _client.PostAsJsonAsync(
-                $"/api/leave-requests/{leaveRequest.Id}/approve",
-                reviewRequest);
-
-            Assert.Equal(HttpStatusCode.OK, approveResponse.StatusCode);
-
-            var approvedLeaveRequest = await approveResponse.Content.ReadFromJsonAsync<LeaveRequestResponse>(JsonOptions);
-
-            Assert.NotNull(approvedLeaveRequest);
-            Assert.Equal(LeaveRequestStatus.Approved, approvedLeaveRequest!.Status);
+            Assert.Equal(LeaveRequestStatus.Approved, approvedLeaveRequest.Status);
             Assert.Equal(testData.ManagerId, approvedLeaveRequest.ReviewedByEmployeeId);
             Assert.Equal("Approved by direct manager.", approvedLeaveRequest.ManagerComment);
 
@@ -482,6 +472,197 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
     }
 
     [Fact]
+    public async Task ApprovedLeaveRequestCannotBeReviewedAgain_ReturnsBadRequest()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var testData = await CreateTeamAsync();
+
+        try
+        {
+            var leaveRequest = await CreateLeaveRequestAsync(
+                testData.EmployeeId,
+                "2026-10-01",
+                "2026-10-03",
+                "Approved leave request should not be reviewed again.");
+
+            await ApproveLeaveRequestAsync(
+                leaveRequest.Id,
+                testData.ManagerId,
+                "Approved by direct manager.");
+
+            var reviewRequest = new
+            {
+                reviewerEmployeeId = testData.ManagerId,
+                managerComment = "Trying to reject an already approved request."
+            };
+
+            var response = await _client.PostAsJsonAsync(
+                $"/api/leave-requests/{leaveRequest.Id}/reject",
+                reviewRequest);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(JsonOptions);
+
+            Assert.NotNull(problem);
+            Assert.Equal(400, problem!.Status);
+            Assert.Equal("Invalid leave request.", problem.Title);
+            Assert.Contains("pending", problem.Detail.ToLowerInvariant());
+        }
+        finally
+        {
+            await CleanupAsync(testData.DepartmentId);
+        }
+    }
+
+    [Fact]
+    public async Task ApprovedLeaveRequestCannotBeUpdated_ReturnsBadRequest()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var testData = await CreateTeamAsync();
+
+        try
+        {
+            var leaveRequest = await CreateLeaveRequestAsync(
+                testData.EmployeeId,
+                "2026-10-01",
+                "2026-10-03",
+                "Approved leave request should not be updated.");
+
+            await ApproveLeaveRequestAsync(
+                leaveRequest.Id,
+                testData.ManagerId,
+                "Approved by direct manager.");
+
+            var updateRequest = new
+            {
+                leaveTypeId = AnnualLeaveTypeId,
+                startDate = "2026-10-05",
+                endDate = "2026-10-07",
+                reason = "Trying to update an approved leave request."
+            };
+
+            var response = await _client.PutAsJsonAsync(
+                $"/api/leave-requests/{leaveRequest.Id}",
+                updateRequest);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(JsonOptions);
+
+            Assert.NotNull(problem);
+            Assert.Equal(400, problem!.Status);
+            Assert.Equal("Invalid leave request.", problem.Title);
+            Assert.Contains("pending", problem.Detail.ToLowerInvariant());
+        }
+        finally
+        {
+            await CleanupAsync(testData.DepartmentId);
+        }
+    }
+
+    [Fact]
+    public async Task ApprovedLeaveRequestCannotBeDeleted_ReturnsBadRequest()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var testData = await CreateTeamAsync();
+
+        try
+        {
+            var leaveRequest = await CreateLeaveRequestAsync(
+                testData.EmployeeId,
+                "2026-10-01",
+                "2026-10-03",
+                "Approved leave request should not be deleted.");
+
+            await ApproveLeaveRequestAsync(
+                leaveRequest.Id,
+                testData.ManagerId,
+                "Approved by direct manager.");
+
+            var response = await _client.DeleteAsync($"/api/leave-requests/{leaveRequest.Id}");
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsResponse>(JsonOptions);
+
+            Assert.NotNull(problem);
+            Assert.Equal(400, problem!.Status);
+            Assert.Equal("Invalid leave request.", problem.Title);
+            Assert.Contains("pending", problem.Detail.ToLowerInvariant());
+        }
+        finally
+        {
+            await CleanupAsync(testData.DepartmentId);
+        }
+    }
+
+    [Fact]
+    public async Task RejectedLeaveRequest_DoesNotBlockNewRequestForSameDateRange()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var testData = await CreateTeamAsync();
+
+        try
+        {
+            var rejectedLeaveRequest = await CreateLeaveRequestAsync(
+                testData.EmployeeId,
+                "2026-10-01",
+                "2026-10-03",
+                "Rejected leave request should not block same dates.");
+
+            await RejectLeaveRequestAsync(
+                rejectedLeaveRequest.Id,
+                testData.ManagerId,
+                "Rejected by direct manager.");
+
+            var newLeaveRequest = await CreateLeaveRequestAsync(
+                testData.EmployeeId,
+                "2026-10-01",
+                "2026-10-03",
+                "New request for same dates after rejection.");
+
+            Assert.Equal(LeaveRequestStatus.Pending, newLeaveRequest.Status);
+            Assert.Equal(3, newLeaveRequest.RequestedDays);
+        }
+        finally
+        {
+            await CleanupAsync(testData.DepartmentId);
+        }
+    }
+
+    [Fact]
+    public async Task ApproveNonExistentLeaveRequest_ReturnsNotFound()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var testData = await CreateTeamAsync();
+
+        try
+        {
+            var reviewRequest = new
+            {
+                reviewerEmployeeId = testData.ManagerId,
+                managerComment = "Trying to approve a non-existent leave request."
+            };
+
+            var response = await _client.PostAsJsonAsync(
+                $"/api/leave-requests/{Guid.NewGuid()}/approve",
+                reviewRequest);
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+        finally
+        {
+            await CleanupAsync(testData.DepartmentId);
+        }
+    }
+
+    [Fact]
     public async Task DirectManagerCanRejectLeaveRequest()
     {
         await EnsureDatabaseReadyAsync();
@@ -496,22 +677,12 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
                 "2026-10-03",
                 "Reject flow test leave request.");
 
-            var reviewRequest = new
-            {
-                reviewerEmployeeId = testData.ManagerId,
-                managerComment = "Rejected by direct manager."
-            };
+            var rejectedLeaveRequest = await RejectLeaveRequestAsync(
+                leaveRequest.Id,
+                testData.ManagerId,
+                "Rejected by direct manager.");
 
-            var rejectResponse = await _client.PostAsJsonAsync(
-                $"/api/leave-requests/{leaveRequest.Id}/reject",
-                reviewRequest);
-
-            Assert.Equal(HttpStatusCode.OK, rejectResponse.StatusCode);
-
-            var rejectedLeaveRequest = await rejectResponse.Content.ReadFromJsonAsync<LeaveRequestResponse>(JsonOptions);
-
-            Assert.NotNull(rejectedLeaveRequest);
-            Assert.Equal(LeaveRequestStatus.Rejected, rejectedLeaveRequest!.Status);
+            Assert.Equal(LeaveRequestStatus.Rejected, rejectedLeaveRequest.Status);
             Assert.Equal(testData.ManagerId, rejectedLeaveRequest.ReviewedByEmployeeId);
             Assert.Equal("Rejected by direct manager.", rejectedLeaveRequest.ManagerComment);
         }
@@ -685,6 +856,30 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
 
         var response = await _client.PostAsJsonAsync(
             $"/api/leave-requests/{leaveRequestId}/approve",
+            reviewRequest);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var leaveRequest = await response.Content.ReadFromJsonAsync<LeaveRequestResponse>(JsonOptions);
+
+        Assert.NotNull(leaveRequest);
+
+        return leaveRequest!;
+    }
+
+    private async Task<LeaveRequestResponse> RejectLeaveRequestAsync(
+        Guid leaveRequestId,
+        Guid reviewerEmployeeId,
+        string managerComment)
+    {
+        var reviewRequest = new
+        {
+            reviewerEmployeeId,
+            managerComment
+        };
+
+        var response = await _client.PostAsJsonAsync(
+            $"/api/leave-requests/{leaveRequestId}/reject",
             reviewRequest);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
