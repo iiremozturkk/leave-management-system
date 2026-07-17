@@ -40,10 +40,8 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         ArgumentNullException.ThrowIfNull(request);
 
         var reason = NormalizeRequiredText(request.Reason, "Reason", ReasonMaxLength);
-        var requestedDays = CalculateRequestedDays(request.StartDate, request.EndDate);
-        var leaveYear = request.StartDate.Year;
 
-        EnsureSupportedYear(leaveYear);
+        EnsureSupportedDateRange(request.StartDate, request.EndDate);
 
         await EnsureEmployeeExistsAndIsActiveAsync(request.EmployeeId, cancellationToken);
         await EnsureLeaveTypeExistsAsync(request.LeaveTypeId, cancellationToken);
@@ -58,8 +56,8 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         await EnsureEnoughLeaveBalanceAsync(
             request.EmployeeId,
             request.LeaveTypeId,
-            leaveYear,
-            requestedDays,
+            request.StartDate,
+            request.EndDate,
             null,
             cancellationToken);
 
@@ -97,10 +95,8 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         EnsureLeaveRequestCanBeModified(leaveRequest);
 
         var reason = NormalizeRequiredText(request.Reason, "Reason", ReasonMaxLength);
-        var requestedDays = CalculateRequestedDays(request.StartDate, request.EndDate);
-        var leaveYear = request.StartDate.Year;
 
-        EnsureSupportedYear(leaveYear);
+        EnsureSupportedDateRange(request.StartDate, request.EndDate);
 
         await EnsureLeaveTypeExistsAsync(request.LeaveTypeId, cancellationToken);
 
@@ -114,8 +110,8 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         await EnsureEnoughLeaveBalanceAsync(
             leaveRequest.EmployeeId,
             request.LeaveTypeId,
-            leaveYear,
-            requestedDays,
+            request.StartDate,
+            request.EndDate,
             leaveRequest.Id,
             cancellationToken);
 
@@ -204,15 +200,13 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
             request.ReviewerEmployeeId,
             cancellationToken);
 
-        var leaveYear = leaveRequest.StartDate.Year;
-
-        EnsureSupportedYear(leaveYear);
+        EnsureSupportedDateRange(leaveRequest.StartDate, leaveRequest.EndDate);
 
         await EnsureEnoughLeaveBalanceAsync(
             leaveRequest.EmployeeId,
             leaveRequest.LeaveTypeId,
-            leaveYear,
-            leaveRequest.RequestedDays,
+            leaveRequest.StartDate,
+            leaveRequest.EndDate,
             leaveRequest.Id,
             cancellationToken);
 
@@ -323,32 +317,37 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
     private async Task EnsureEnoughLeaveBalanceAsync(
         Guid employeeId,
         Guid leaveTypeId,
-        int year,
-        int requestedDays,
+        DateOnly startDate,
+        DateOnly endDate,
         Guid? excludedLeaveRequestId,
         CancellationToken cancellationToken)
     {
-        var balance = await CalculateBalanceAsync(
-            employeeId,
-            leaveTypeId,
-            year,
-            excludedLeaveRequestId,
-            cancellationToken);
+        var requestedDaysByYear = GetRequestedDaysByYear(startDate, endDate);
 
-        if (balance is null)
+        foreach (var requestedDaysForYear in requestedDaysByYear)
         {
-            throw new InvalidOperationException("Leave type does not exist.");
-        }
+            var balance = await CalculateBalanceAsync(
+                employeeId,
+                leaveTypeId,
+                requestedDaysForYear.Year,
+                excludedLeaveRequestId,
+                cancellationToken);
 
-        if (balance.EntitledDays <= 0)
-        {
-            return;
-        }
+            if (balance is null)
+            {
+                throw new InvalidOperationException("Leave type does not exist.");
+            }
 
-        if (requestedDays > balance.RemainingDays)
-        {
-            throw new InvalidOperationException(
-                "Requested leave days exceed the remaining leave balance.");
+            if (balance.EntitledDays <= 0)
+            {
+                continue;
+            }
+
+            if (requestedDaysForYear.Days > balance.RemainingDays)
+            {
+                throw new InvalidOperationException(
+                    "Requested leave days exceed the remaining leave balance.");
+            }
         }
     }
 
@@ -369,20 +368,31 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         }
 
         var yearStart = new DateOnly(year, 1, 1);
-        var nextYearStart = yearStart.AddYears(1);
+        var yearEnd = new DateOnly(year, 12, 31);
 
-        var usedDays = await dbContext.LeaveRequests
+        var approvedLeaveRequestsInYear = await dbContext.LeaveRequests
             .AsNoTracking()
             .Where(leaveRequest =>
                 leaveRequest.EmployeeId == employeeId
                 && leaveRequest.LeaveTypeId == leaveTypeId
                 && leaveRequest.Status == LeaveRequestStatus.Approved
-                && leaveRequest.StartDate >= yearStart
-                && leaveRequest.StartDate < nextYearStart
+                && leaveRequest.StartDate <= yearEnd
+                && leaveRequest.EndDate >= yearStart
                 && (excludedLeaveRequestId == null || leaveRequest.Id != excludedLeaveRequestId.Value))
-            .SumAsync(leaveRequest => leaveRequest.RequestedDays, cancellationToken);
+            .Select(leaveRequest => new
+            {
+                leaveRequest.StartDate,
+                leaveRequest.EndDate
+            })
+            .ToListAsync(cancellationToken);
 
-        var entitledDays = leaveType.DefaultAnnualAllowanceDays;
+        var usedDays = approvedLeaveRequestsInYear
+            .Sum(leaveRequest => CalculateDaysWithinYear(
+                leaveRequest.StartDate,
+                leaveRequest.EndDate,
+                year));
+
+        var entitledDays = CalculateEntitledDays(leaveType, year);
         var remainingDays = entitledDays - usedDays;
 
         return new LeaveBalanceDto(
@@ -437,6 +447,67 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
             throw new ForbiddenOperationException(
                 "Only the employee's direct manager can review this leave request.");
         }
+    }
+
+    private static void EnsureSupportedDateRange(DateOnly startDate, DateOnly endDate)
+    {
+        CalculateRequestedDays(startDate, endDate);
+        EnsureSupportedYear(startDate.Year);
+        EnsureSupportedYear(endDate.Year);
+    }
+
+    private static IReadOnlyList<(int Year, int Days)> GetRequestedDaysByYear(
+        DateOnly startDate,
+        DateOnly endDate)
+    {
+        EnsureSupportedDateRange(startDate, endDate);
+
+        var requestedDaysByYear = new List<(int Year, int Days)>();
+
+        for (var year = startDate.Year; year <= endDate.Year; year++)
+        {
+            var daysInYear = CalculateDaysWithinYear(startDate, endDate, year);
+
+            if (daysInYear > 0)
+            {
+                requestedDaysByYear.Add((year, daysInYear));
+            }
+        }
+
+        return requestedDaysByYear;
+    }
+
+    private static int CalculateDaysWithinYear(
+        DateOnly startDate,
+        DateOnly endDate,
+        int year)
+    {
+        EnsureSupportedYear(year);
+
+        var yearStart = new DateOnly(year, 1, 1);
+        var yearEnd = new DateOnly(year, 12, 31);
+
+        var effectiveStartDate = startDate > yearStart
+            ? startDate
+            : yearStart;
+
+        var effectiveEndDate = endDate < yearEnd
+            ? endDate
+            : yearEnd;
+
+        if (effectiveEndDate < effectiveStartDate)
+        {
+            return 0;
+        }
+
+        return CalculateRequestedDays(effectiveStartDate, effectiveEndDate);
+    }
+
+    private static int CalculateEntitledDays(LeaveType leaveType, int year)
+    {
+        _ = year; // year is currently unused; reserved in case future per-year entitlement rules are added.
+
+        return leaveType.DefaultAnnualAllowanceDays;
     }
 
     private static void EnsureSupportedYear(int year)
