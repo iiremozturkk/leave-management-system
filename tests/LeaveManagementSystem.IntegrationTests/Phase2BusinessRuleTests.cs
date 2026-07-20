@@ -463,6 +463,15 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
             Assert.Equal(zeroAllowanceLeaveTypeId, leaveRequest.LeaveTypeId);
             Assert.Equal(90, leaveRequest.RequestedDays);
             Assert.Equal(LeaveRequestStatus.Pending, leaveRequest.Status);
+
+            var approvedLeaveRequest = await ApproveLeaveRequestAsync(
+                leaveRequest.Id,
+                testData.ManagerId,
+                "Approved zero allowance leave request.");
+
+            Assert.Equal(LeaveRequestStatus.Approved, approvedLeaveRequest.Status);
+            Assert.Equal(testData.ManagerId, approvedLeaveRequest.ReviewedByEmployeeId);
+            Assert.Equal("Approved zero allowance leave request.", approvedLeaveRequest.ManagerComment);
         }
         finally
         {
