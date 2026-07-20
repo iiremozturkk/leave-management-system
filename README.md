@@ -1,8 +1,10 @@
 # Personel Izin ve Onay Yonetim Sistemi
 
-Personel Izin Yonetim Sistemi, calisanlarin izin taleplerini yonetmek icin gelistirilen bir backend API projesidir. Proje; ASP.NET Core Web API, Entity Framework Core, PostgreSQL ve Clean Architecture prensiplerine uygun katmanli bir yapi ile gelistirilmektedir.
+Personel Izin ve Onay Yonetim Sistemi, calisanlarin izin taleplerini yonetmek, izin bakiyelerini takip etmek ve yonetici onay sureclerini kontrol etmek icin gelistirilen bir backend API projesidir.
 
-Bu repository, staj projesi kapsaminda fazlara ayrilmis sekilde gelistirilmektedir. Mevcut durumda Faz 1 kapsaminda temel mimari yapi, veritabani altyapisi, domain modeli, varsayilan izin turleri ve temel CRUD endpointleri tamamlanmistir.
+Proje; ASP.NET Core Web API, Entity Framework Core, PostgreSQL ve Clean Architecture prensiplerine uygun katmanli bir yapi ile gelistirilmektedir.
+
+Bu repository, staj projesi kapsaminda fazlara ayrilmis sekilde gelistirilmektedir. Mevcut durumda Faz 1 ve Faz 2 kapsamindaki temel mimari yapi, veritabani altyapisi, CRUD endpointleri, izin bakiyesi hesaplama mantigi, onay akisi ve temel is kurallari tamamlanmistir.
 
 ---
 
@@ -11,7 +13,7 @@ Bu repository, staj projesi kapsaminda fazlara ayrilmis sekilde gelistirilmekted
 | Faz | Kapsam | Durum |
 |---|---|---|
 | Faz 1 | Temel mimari, entity yapisi, EF Core, migration, seed data ve temel CRUD endpointleri | Tamamlandi |
-| Faz 2 | Is kurallari, validasyon, izin hakki ve onay kurallari | Planlandi |
+| Faz 2 | Is kurallari, validasyon, izin bakiyesi, onay akisi ve yonetici yetki kurallari | Tamamlandi |
 | Faz 3 | CQRS, MediatR, JWT authentication, authorization ve raporlama | Planlandi |
 | Faz 4 | Gelismis testler, final dokumantasyon ve teslim hazirligi | Planlandi |
 
@@ -36,6 +38,31 @@ Bu repository, staj projesi kapsaminda fazlara ayrilmis sekilde gelistirilmekted
 
 ---
 
+## Faz 2 Kapsaminda Tamamlananlar
+
+Faz 2 kapsaminda projeye gercek is kurallari ve onay mantigi eklenmistir.
+
+Tamamlanan basliklar:
+
+- Izin bakiyesi hesaplama mantigi eklendi.
+- Yillik hak edis mantigi `EntitledDays`, `UsedDays` ve `RemainingDays` uzerinden temsil edildi.
+- Izin bakiyesi yil bazinda hesaplanir hale getirildi.
+- Cross-year izin talepleri ilgili yillara bolunerek hesaplanir hale getirildi.
+- Kalan izin bakiyesinden fazla talep olusturulmasi engellendi.
+- Ayni calisan icin cakisan tarih araligina sahip izin talepleri engellendi.
+- Reddedilmis izin taleplerinin yeni talepleri engellememesi saglandi.
+- Izin talebi onay akisi uygulandi: `Pending -> Approved / Rejected`.
+- Sadece talebi acan calisanin dogrudan yoneticisinin approve/reject islemi yapabilmesi saglandi.
+- Employee, Manager ve HR rolleri uzerinden is kurallari uygulandi.
+- Employee, HR veya baska bir manager'in baskasinin talebini onaylamasi engellendi.
+- Yetki hatalari icin `403 Forbidden`, is kurali hatalari icin `400 Bad Request` donulmesi saglandi.
+- Approved durumdaki izin taleplerinin tekrar review/update/delete edilmesi engellendi.
+- Var olmayan izin talebi icin approve istegi geldiginde `404 Not Found` donulmesi saglandi.
+- Zero allowance leave type icin create ve approve davranisi test edildi.
+- Faz 2 icin integration test kapsami genisletildi.
+
+---
+
 ## Mimari Yapi
 
 Proje Clean Architecture prensiplerine uygun katmanli bir yapi kullanmaktadir.
@@ -56,9 +83,9 @@ tests/
 | Katman | Sorumluluk |
 |---|---|
 | Domain | Temel entity'ler, enum'lar ve cekirdek is modeli |
-| Application | DTO'lar ve servis interface'leri |
+| Application | DTO'lar, servis interface'leri ve application-level exception'lar |
 | Infrastructure | EF Core, PostgreSQL, DbContext ve servis implementasyonlari |
-| WebAPI | Controller'lar, HTTP endpointleri ve Swagger konfigurasyonu |
+| WebAPI | Controller'lar, HTTP endpointleri, Swagger konfigurasyonu ve HTTP response mapping |
 | IntegrationTests | API seviyesinde integration testler |
 
 Mevcut request akisi:
@@ -129,6 +156,14 @@ Sick Leave
 Unpaid Leave
 ```
 
+One cikan alanlar:
+
+- `Name`
+- `DefaultAnnualAllowanceDays`
+- `IsPaid`
+
+`DefaultAnnualAllowanceDays`, ilgili izin turu icin varsayilan yillik hak edis gun sayisini temsil eder.
+
 ### LeaveRequest
 
 Bir calisanin izin talebini temsil eder.
@@ -147,6 +182,80 @@ One cikan alanlar:
 - `ReviewedByEmployeeId`
 
 Yeni olusturulan izin talepleri varsayilan olarak `Pending` durumunda baslar. `RequestedDays` degeri tarih araligina gore otomatik hesaplanir.
+
+Izin talebi status akisi:
+
+```text
+Pending -> Approved
+Pending -> Rejected
+```
+
+Approved veya Rejected durumuna gecmis talepler tekrar review edilemez. Approved durumdaki talepler update veya delete edilemez.
+
+---
+
+## Is Kurallari Ozeti
+
+### Izin Bakiyesi
+
+Izin bakiyesi yil bazinda hesaplanir.
+
+```text
+EntitledDays - UsedDays = RemainingDays
+```
+
+- `EntitledDays`: ilgili izin turu icin yillik hak edilen gun sayisi
+- `UsedDays`: ilgili yil icinde approved izin gunleri
+- `RemainingDays`: kalan izin gunu
+
+Sadece `Approved` durumdaki izin talepleri kullanilmis izin olarak sayilir.
+
+### Cross-Year Izinler
+
+Bir izin talebi birden fazla yila yayiliyorsa, gunler ilgili yillara bolunur.
+
+Ornek:
+
+```text
+2026-12-30 -> 2027-01-02
+```
+
+Bu talep toplam 4 gun surer:
+
+```text
+2026: 2 gun
+2027: 2 gun
+```
+
+Balance kontrolu her yil icin ayri yapilir.
+
+### Overlap Kontrolu
+
+Ayni calisan icin cakisan tarih araligina sahip izin talepleri engellenir.
+
+Rejected durumdaki izin talepleri yeni izin taleplerini engellemez. Boylece reddedilmis bir talep sonrasinda ayni tarih araligi icin yeni talep olusturulabilir.
+
+### Onay Kurali
+
+Bir izin talebi sadece talebi acan calisanin dogrudan yoneticisi tarafindan approve veya reject edilebilir.
+
+Asagidaki kullanicilar approve/reject yapamaz:
+
+- Talebi acan employee
+- HR kullanicisi
+- Baska bir manager
+- Talebi acan calisanin dogrudan yoneticisi olmayan manager
+
+Yetki hatalarinda API `403 Forbidden` doner.
+
+### Lifecycle Kurallari
+
+- Yeni izin talebi `Pending` olarak olusturulur.
+- Sadece `Pending` talepler update edilebilir.
+- Sadece `Pending` talepler delete edilebilir.
+- Sadece `Pending` talepler approve/reject edilebilir.
+- Approved talepler tekrar review edilemez.
+- Approved talepler update/delete edilemez.
 
 ---
 
@@ -203,7 +312,7 @@ dotnet ef database update --project src/LeaveManagementSystem.Infrastructure --s
 ### 4. Web API'yi calistirma
 
 ```bash
-dotnet run --project src/LeaveManagementSystem.WebAPI
+dotnet run --project src/LeaveManagementSystem.WebAPI --launch-profile http
 ```
 
 Uygulama calistiktan sonra Swagger UI asagidaki adresten acilabilir:
@@ -217,6 +326,12 @@ Uygulama farkli bir portta baslarsa terminalde gorunen URL kullanilmali ve sonun
 ---
 
 ## API Endpointleri
+
+### Health
+
+| Method | Endpoint | Aciklama |
+|---|---|---|
+| GET | `/api/health` | API saglik kontrolu |
 
 ### Employees
 
@@ -235,10 +350,13 @@ Uygulama farkli bir portta baslarsa terminalde gorunen URL kullanilmali ve sonun
 | GET | `/api/leave-requests` | Tum izin taleplerini listeler |
 | GET | `/api/leave-requests/{id}` | Id'ye gore izin talebi getirir |
 | POST | `/api/leave-requests` | Yeni izin talebi olusturur |
-| PUT | `/api/leave-requests/{id}` | Izin talebini gunceller |
-| DELETE | `/api/leave-requests/{id}` | Izin talebini siler |
+| PUT | `/api/leave-requests/{id}` | Pending durumdaki izin talebini gunceller |
+| DELETE | `/api/leave-requests/{id}` | Pending durumdaki izin talebini siler |
+| GET | `/api/leave-requests/balance` | Calisanin belirli yil ve izin turu icin izin bakiyesini getirir |
+| POST | `/api/leave-requests/{id}/approve` | Izin talebini dogrudan yonetici olarak onaylar |
+| POST | `/api/leave-requests/{id}/reject` | Izin talebini dogrudan yonetici olarak reddeder |
 
-Not: Su an sadece `Pending` durumundaki izin talepleri guncellenebilir veya silinebilir.
+Not: Faz 2'de approve/reject endpointleri `reviewerEmployeeId` alani ile test edilmektedir. JWT tabanli kullanici kimligi ve role claim kullanimi Faz 3 kapsaminda eklenecektir.
 
 ---
 
@@ -257,6 +375,14 @@ Not: Su an sadece `Pending` durumundaki izin talepleri guncellenebilir veya sili
 }
 ```
 
+Role degerleri:
+
+```text
+1 = Employee
+2 = Manager
+3 = HR
+```
+
 ### LeaveRequest Olusturma
 
 ```json
@@ -269,7 +395,57 @@ Not: Su an sadece `Pending` durumundaki izin talepleri guncellenebilir veya sili
 }
 ```
 
-Not: LeaveRequest olusturmak icin veritabaninda gecerli bir `Employee` kaydi bulunmalidir. Varsayilan `LeaveType` kayitlari migration ile otomatik eklenmektedir.
+Not: LeaveRequest olusturmak icin veritabaninda gecerli ve aktif bir `Employee` kaydi bulunmalidir. Varsayilan `LeaveType` kayitlari migration ile otomatik eklenmektedir.
+
+### LeaveRequest Approve
+
+```json
+{
+  "reviewerEmployeeId": "33333333-3333-3333-3333-333333333333",
+  "managerComment": "Approved by direct manager."
+}
+```
+
+### LeaveRequest Reject
+
+```json
+{
+  "reviewerEmployeeId": "33333333-3333-3333-3333-333333333333",
+  "managerComment": "Rejected by direct manager."
+}
+```
+
+### Leave Balance Sorgusu
+
+```text
+GET /api/leave-requests/balance?employeeId=22222222-2222-2222-2222-222222222222&leaveTypeId=10000000-0000-0000-0000-000000000001&year=2026
+```
+
+Ornek response:
+
+```json
+{
+  "employeeId": "22222222-2222-2222-2222-222222222222",
+  "leaveTypeId": "10000000-0000-0000-0000-000000000001",
+  "leaveTypeName": "Annual Leave",
+  "year": 2026,
+  "entitledDays": 20,
+  "usedDays": 5,
+  "remainingDays": 15
+}
+```
+
+---
+
+## Hata Davranislari
+
+Faz 2 kapsaminda API hata davranislari daha belirgin hale getirilmistir.
+
+| Durum | HTTP Status | Aciklama |
+|---|---|---|
+| Gecersiz is kurali veya validasyon hatasi | `400 Bad Request` | Ornegin bakiye yetersiz, overlap var veya approved request update edilmeye calisiliyor |
+| Yetkisiz review islemi | `403 Forbidden` | Ornegin employee, HR veya direct manager olmayan manager approve/reject yapmaya calisiyor |
+| Kaynak bulunamadi | `404 Not Found` | Ornegin var olmayan leave request approve edilmeye calisiliyor |
 
 ---
 
@@ -291,6 +467,36 @@ dotnet test
 git diff --check
 git status
 ```
+
+Mevcut durumda integration test kapsami:
+
+```text
+20 integration tests
+0 failed
+```
+
+Test edilen ana senaryolar:
+
+- Employee CRUD
+- LeaveRequest CRUD
+- Overlap rejection
+- Balance calculation
+- Exceeding remaining balance rejection
+- Direct manager approval
+- Direct manager rejection
+- Non-direct manager forbidden
+- Employee approval forbidden
+- HR approval forbidden
+- Previous-year balance isolation
+- Cross-year balance allocation
+- Cross-year insufficient balance rejection
+- Exact remaining balance approval
+- Zero allowance leave type create and approve flow
+- Approved request cannot be reviewed again
+- Approved request cannot be updated
+- Approved request cannot be deleted
+- Rejected request does not block new request for same date range
+- Approving non-existent leave request returns not found
 
 ---
 
@@ -333,4 +539,27 @@ Faz 1 kapsaminda asagidaki kontroller tamamlanmistir:
 - `dotnet build` basarili calisti.
 - `dotnet test` basarili calisti.
 - `git diff --check` temiz sonuc verdi.
+- Git working tree temiz olarak dogrulandi.
+
+---
+
+## Faz 2 Dogrulama
+
+Faz 2 kapsaminda asagidaki kontroller tamamlanmistir:
+
+- Leave balance endpointi manuel olarak test edildi.
+- Approve endpointi direct manager ile basariyla test edildi.
+- Reject endpointi direct manager ile basariyla test edildi.
+- Non-direct manager approval denemesi reddedildi.
+- Employee approval denemesi reddedildi.
+- HR approval denemesi reddedildi.
+- Overlap request denemesi `400 Bad Request` ile reddedildi.
+- Yetersiz balance senaryosu `400 Bad Request` ile reddedildi.
+- Yetki hatalari `403 Forbidden` olarak dogrulandi.
+- Cross-year leave balance mantigi integration test ile dogrulandi.
+- Approved request lifecycle guard kurallari test edildi.
+- Rejected request status-aware overlap davranisi test edildi.
+- `dotnet build` basarili calisti.
+- `dotnet test` basarili calisti.
+- 20 integration test basariyla gecti.
 - Git working tree temiz olarak dogrulandi.
