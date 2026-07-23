@@ -6,6 +6,7 @@
     <Project Path="src/LeaveManagementSystem.WebAPI/LeaveManagementSystem.WebAPI.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/LeaveManagementSystem.Application.UnitTests/LeaveManagementSystem.Application.UnitTests.csproj" />
     <Project Path="tests/LeaveManagementSystem.IntegrationTests/LeaveManagementSystem.IntegrationTests.csproj" />
   </Folder>
 </Solution>

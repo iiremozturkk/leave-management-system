@@ -23,7 +23,7 @@ public sealed class ValidationBehavior<TRequest, TResponse>
 
         if (validators.Length == 0)
         {
-            return await next();
+            return await next(cancellationToken);
         }
 
         var validationContext = new ValidationContext<TRequest>(request);
@@ -41,6 +41,6 @@ public sealed class ValidationBehavior<TRequest, TResponse>
             throw new ValidationException(validationFailures);
         }
 
-        return await next();
+        return await next(cancellationToken);
     }
 }
