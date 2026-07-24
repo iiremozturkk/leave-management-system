@@ -1,5 +1,7 @@
 ﻿using LeaveManagementSystem.Application.Employees.Dtos;
+using LeaveManagementSystem.Application.Employees.Queries.GetEmployees;
 using LeaveManagementSystem.Application.Employees.Services;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,26 +9,37 @@ namespace LeaveManagementSystem.WebAPI.Controllers;
 
 [ApiController]
 [Route("api/employees")]
-public sealed class EmployeesController(IEmployeeService employeeService) : ControllerBase
+public sealed class EmployeesController(
+    ISender sender,
+    IEmployeeService employeeService)
+    : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<EmployeeDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(IReadOnlyList<EmployeeDto>),
+        StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<EmployeeDto>>> GetAll(
         CancellationToken cancellationToken)
     {
-        var employees = await employeeService.GetAllAsync(cancellationToken);
+        var employees = await sender.Send(
+            new GetEmployeesQuery(),
+            cancellationToken);
 
         return Ok(employees);
     }
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(EmployeeDto),
+        StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EmployeeDto>> GetById(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var employee = await employeeService.GetByIdAsync(id, cancellationToken);
+        var employee = await employeeService.GetByIdAsync(
+            id,
+            cancellationToken);
 
         if (employee is null)
         {
@@ -37,20 +50,27 @@ public sealed class EmployeesController(IEmployeeService employeeService) : Cont
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(EmployeeDto),
+        StatusCodes.Status201Created)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<EmployeeDto>> Create(
         [FromBody] CreateEmployeeRequest? request,
         CancellationToken cancellationToken)
     {
         if (request is null)
         {
-            return BadRequestProblem("Request body is required.");
+            return BadRequestProblem(
+                "Request body is required.");
         }
 
         try
         {
-            var employee = await employeeService.CreateAsync(request, cancellationToken);
+            var employee = await employeeService.CreateAsync(
+                request,
+                cancellationToken);
 
             return CreatedAtAction(
                 nameof(GetById),
@@ -64,8 +84,12 @@ public sealed class EmployeesController(IEmployeeService employeeService) : Cont
     }
 
     [HttpPut("{id:guid}")]
-    [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(EmployeeDto),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EmployeeDto>> Update(
         Guid id,
@@ -74,12 +98,16 @@ public sealed class EmployeesController(IEmployeeService employeeService) : Cont
     {
         if (request is null)
         {
-            return BadRequestProblem("Request body is required.");
+            return BadRequestProblem(
+                "Request body is required.");
         }
 
         try
         {
-            var employee = await employeeService.UpdateAsync(id, request, cancellationToken);
+            var employee = await employeeService.UpdateAsync(
+                id,
+                request,
+                cancellationToken);
 
             if (employee is null)
             {
@@ -96,7 +124,9 @@ public sealed class EmployeesController(IEmployeeService employeeService) : Cont
 
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         Guid id,
@@ -104,7 +134,9 @@ public sealed class EmployeesController(IEmployeeService employeeService) : Cont
     {
         try
         {
-            var deleted = await employeeService.DeleteAsync(id, cancellationToken);
+            var deleted = await employeeService.DeleteAsync(
+                id,
+                cancellationToken);
 
             if (!deleted)
             {
@@ -119,7 +151,8 @@ public sealed class EmployeesController(IEmployeeService employeeService) : Cont
         }
     }
 
-    private BadRequestObjectResult BadRequestProblem(string detail)
+    private BadRequestObjectResult BadRequestProblem(
+        string detail)
     {
         return BadRequest(new ProblemDetails
         {

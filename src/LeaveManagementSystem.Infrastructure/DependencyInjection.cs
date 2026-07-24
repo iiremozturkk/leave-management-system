@@ -1,5 +1,7 @@
-﻿using LeaveManagementSystem.Application.Employees.Services;
+﻿using LeaveManagementSystem.Application.Employees.Abstractions;
+using LeaveManagementSystem.Application.Employees.Services;
 using LeaveManagementSystem.Application.LeaveRequests.Services;
+using LeaveManagementSystem.Infrastructure.Employees.Persistence;
 using LeaveManagementSystem.Infrastructure.Employees.Services;
 using LeaveManagementSystem.Infrastructure.LeaveRequests.Services;
 using LeaveManagementSystem.Infrastructure.Persistence;
@@ -15,15 +17,21 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var connectionString =
+            configuration.GetConnectionString("DefaultConnection");
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-            throw new InvalidOperationException("DefaultConnection connection string is not configured.");
+            throw new InvalidOperationException(
+                "DefaultConnection connection string is not configured.");
         }
 
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString));
+
+        services.AddScoped<
+            IEmployeeReadRepository,
+            EmployeeReadRepository>();
 
         services.AddScoped<IEmployeeService, EmployeeService>();
         services.AddScoped<ILeaveRequestService, LeaveRequestService>();
