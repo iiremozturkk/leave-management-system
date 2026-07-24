@@ -1,7 +1,7 @@
-﻿using System.Linq.Expressions;
-using LeaveManagementSystem.Application.Employees.Dtos;
+﻿using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Application.Employees.Services;
 using LeaveManagementSystem.Domain.Entities;
+using LeaveManagementSystem.Infrastructure.Employees.Persistence;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,22 +9,25 @@ namespace LeaveManagementSystem.Infrastructure.Employees.Services;
 
 public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
 {
-    public async Task<IReadOnlyList<EmployeeDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<EmployeeDto>> GetAllAsync(
+        CancellationToken cancellationToken = default)
     {
         return await dbContext.Employees
             .AsNoTracking()
             .OrderBy(employee => employee.LastName)
             .ThenBy(employee => employee.FirstName)
-            .Select(EmployeeProjection)
+            .Select(EmployeeProjections.ToDto)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<EmployeeDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<EmployeeDto?> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
     {
         return await dbContext.Employees
             .AsNoTracking()
             .Where(employee => employee.Id == id)
-            .Select(EmployeeProjection)
+            .Select(EmployeeProjections.ToDto)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -32,13 +35,29 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
         CreateEmployeeRequest request,
         CancellationToken cancellationToken = default)
     {
-        var firstName = NormalizeRequiredText(request.FirstName, "First name");
-        var lastName = NormalizeRequiredText(request.LastName, "Last name");
+        var firstName = NormalizeRequiredText(
+            request.FirstName,
+            "First name");
+
+        var lastName = NormalizeRequiredText(
+            request.LastName,
+            "Last name");
+
         var email = NormalizeEmail(request.Email);
 
-        await EnsureDepartmentExistsAsync(request.DepartmentId, cancellationToken);
-        await EnsureManagerCanBeAssignedAsync(request.ManagerId, null, cancellationToken);
-        await EnsureEmailIsUniqueAsync(email, null, cancellationToken);
+        await EnsureDepartmentExistsAsync(
+            request.DepartmentId,
+            cancellationToken);
+
+        await EnsureManagerCanBeAssignedAsync(
+            request.ManagerId,
+            employeeId: null,
+            cancellationToken);
+
+        await EnsureEmailIsUniqueAsync(
+            email,
+            currentEmployeeId: null,
+            cancellationToken);
 
         var employee = new Employee
         {
@@ -52,10 +71,12 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
         };
 
         dbContext.Employees.Add(employee);
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(employee.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Employee was created but could not be loaded.");
+            ?? throw new InvalidOperationException(
+                "Employee was created but could not be loaded.");
     }
 
     public async Task<EmployeeDto?> UpdateAsync(
@@ -64,20 +85,38 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
         CancellationToken cancellationToken = default)
     {
         var employee = await dbContext.Employees
-            .FirstOrDefaultAsync(employee => employee.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(
+                employee => employee.Id == id,
+                cancellationToken);
 
         if (employee is null)
         {
             return null;
         }
 
-        var firstName = NormalizeRequiredText(request.FirstName, "First name");
-        var lastName = NormalizeRequiredText(request.LastName, "Last name");
+        var firstName = NormalizeRequiredText(
+            request.FirstName,
+            "First name");
+
+        var lastName = NormalizeRequiredText(
+            request.LastName,
+            "Last name");
+
         var email = NormalizeEmail(request.Email);
 
-        await EnsureDepartmentExistsAsync(request.DepartmentId, cancellationToken);
-        await EnsureManagerCanBeAssignedAsync(request.ManagerId, id, cancellationToken);
-        await EnsureEmailIsUniqueAsync(email, id, cancellationToken);
+        await EnsureDepartmentExistsAsync(
+            request.DepartmentId,
+            cancellationToken);
+
+        await EnsureManagerCanBeAssignedAsync(
+            request.ManagerId,
+            id,
+            cancellationToken);
+
+        await EnsureEmailIsUniqueAsync(
+            email,
+            id,
+            cancellationToken);
 
         employee.FirstName = firstName;
         employee.LastName = lastName;
@@ -90,13 +129,19 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return await GetByIdAsync(employee.Id, cancellationToken);
+        return await GetByIdAsync(
+            employee.Id,
+            cancellationToken);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
     {
         var employee = await dbContext.Employees
-            .FirstOrDefaultAsync(employee => employee.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(
+                employee => employee.Id == id,
+                cancellationToken);
 
         if (employee is null)
         {
@@ -111,19 +156,25 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
         return true;
     }
 
-    private async Task EnsureDepartmentExistsAsync(Guid departmentId, CancellationToken cancellationToken)
+    private async Task EnsureDepartmentExistsAsync(
+        Guid departmentId,
+        CancellationToken cancellationToken)
     {
         if (departmentId == Guid.Empty)
         {
-            throw new InvalidOperationException("Department id cannot be empty.");
+            throw new InvalidOperationException(
+                "Department id cannot be empty.");
         }
 
         var exists = await dbContext.Departments
-            .AnyAsync(department => department.Id == departmentId, cancellationToken);
+            .AnyAsync(
+                department => department.Id == departmentId,
+                cancellationToken);
 
         if (!exists)
         {
-            throw new InvalidOperationException("Department does not exist.");
+            throw new InvalidOperationException(
+                "Department does not exist.");
         }
     }
 
@@ -139,22 +190,28 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
 
         if (managerId.Value == Guid.Empty)
         {
-            throw new InvalidOperationException("Manager id cannot be empty.");
+            throw new InvalidOperationException(
+                "Manager id cannot be empty.");
         }
 
-        if (employeeId is not null && managerId.Value == employeeId.Value)
+        if (employeeId is not null
+            && managerId.Value == employeeId.Value)
         {
-            throw new InvalidOperationException("An employee cannot be their own manager.");
+            throw new InvalidOperationException(
+                "An employee cannot be their own manager.");
         }
 
         var exists = await dbContext.Employees
             .AnyAsync(
-                employee => employee.Id == managerId.Value && employee.IsActive,
+                employee =>
+                    employee.Id == managerId.Value
+                    && employee.IsActive,
                 cancellationToken);
 
         if (!exists)
         {
-            throw new InvalidOperationException("Manager does not exist or is not active.");
+            throw new InvalidOperationException(
+                "Manager does not exist or is not active.");
         }
     }
 
@@ -167,20 +224,25 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
             .AnyAsync(
                 employee =>
                     employee.Email == email
-                    && (currentEmployeeId == null || employee.Id != currentEmployeeId.Value),
+                    && (currentEmployeeId == null
+                        || employee.Id != currentEmployeeId.Value),
                 cancellationToken);
 
         if (exists)
         {
-            throw new InvalidOperationException("Email is already used by another employee.");
+            throw new InvalidOperationException(
+                "Email is already used by another employee.");
         }
     }
 
-    private static string NormalizeRequiredText(string value, string fieldName)
+    private static string NormalizeRequiredText(
+        string value,
+        string fieldName)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new InvalidOperationException($"{fieldName} cannot be empty.");
+            throw new InvalidOperationException(
+                $"{fieldName} cannot be empty.");
         }
 
         return value.Trim();
@@ -188,23 +250,9 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
 
     private static string NormalizeEmail(string email)
     {
-        return NormalizeRequiredText(email, "Email").ToLowerInvariant();
+        return NormalizeRequiredText(
+                email,
+                "Email")
+            .ToLowerInvariant();
     }
-
-    private static readonly Expression<Func<Employee, EmployeeDto>> EmployeeProjection = employee =>
-        new EmployeeDto(
-            employee.Id,
-            employee.FirstName,
-            employee.LastName,
-            employee.Email,
-            employee.Role,
-            employee.IsActive,
-            employee.DepartmentId,
-            employee.Department.Name,
-            employee.ManagerId,
-            employee.Manager == null
-                ? null
-                : employee.Manager.FirstName + " " + employee.Manager.LastName,
-            employee.CreatedAtUtc,
-            employee.UpdatedAtUtc);
 }
