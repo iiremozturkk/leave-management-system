@@ -1,25 +1,17 @@
-﻿using LeaveManagementSystem.Application.Employees.Dtos;
+﻿using LeaveManagementSystem.Application.Employees.Abstractions;
+using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Application.Employees.Services;
 using LeaveManagementSystem.Domain.Entities;
-using LeaveManagementSystem.Infrastructure.Employees.Persistence;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace LeaveManagementSystem.Infrastructure.Employees.Services;
 
-public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
+public sealed class EmployeeService(
+    AppDbContext dbContext,
+    IEmployeeReadRepository employeeReadRepository)
+    : IEmployeeService
 {
-    public async Task<EmployeeDto?> GetByIdAsync(
-        Guid id,
-        CancellationToken cancellationToken = default)
-    {
-        return await dbContext.Employees
-            .AsNoTracking()
-            .Where(employee => employee.Id == id)
-            .Select(EmployeeProjections.ToDto)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
-
     public async Task<EmployeeDto> CreateAsync(
         CreateEmployeeRequest request,
         CancellationToken cancellationToken = default)
@@ -63,7 +55,9 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return await GetByIdAsync(employee.Id, cancellationToken)
+        return await employeeReadRepository.GetByIdAsync(
+            employee.Id,
+            cancellationToken)
             ?? throw new InvalidOperationException(
                 "Employee was created but could not be loaded.");
     }
@@ -118,9 +112,11 @@ public sealed class EmployeeService(AppDbContext dbContext) : IEmployeeService
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return await GetByIdAsync(
+        return await employeeReadRepository.GetByIdAsync(
             employee.Id,
-            cancellationToken);
+            cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Employee was updated but could not be loaded.");
     }
 
     public async Task<bool> DeleteAsync(

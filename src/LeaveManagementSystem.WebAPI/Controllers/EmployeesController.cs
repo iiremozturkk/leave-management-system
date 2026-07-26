@@ -1,4 +1,5 @@
 ﻿using LeaveManagementSystem.Application.Employees.Dtos;
+using LeaveManagementSystem.Application.Employees.Queries.GetEmployeeById;
 using LeaveManagementSystem.Application.Employees.Queries.GetEmployees;
 using LeaveManagementSystem.Application.Employees.Services;
 using MediatR;
@@ -37,8 +38,8 @@ public sealed class EmployeesController(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var employee = await employeeService.GetByIdAsync(
-            id,
+        var employee = await sender.Send(
+            new GetEmployeeByIdQuery(id),
             cancellationToken);
 
         if (employee is null)

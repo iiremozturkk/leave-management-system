@@ -19,4 +19,15 @@ public sealed class EmployeeReadRepository(
             .Select(EmployeeProjections.ToDto)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<EmployeeDto?> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return await dbContext.Employees
+            .AsNoTracking()
+            .Where(employee => employee.Id == id)
+            .Select(EmployeeProjections.ToDto)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

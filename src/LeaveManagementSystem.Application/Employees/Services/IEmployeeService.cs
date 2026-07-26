@@ -4,10 +4,6 @@ namespace LeaveManagementSystem.Application.Employees.Services;
 
 public interface IEmployeeService
 {
-    Task<EmployeeDto?> GetByIdAsync(
-        Guid id,
-        CancellationToken cancellationToken = default);
-
     Task<EmployeeDto> CreateAsync(
         CreateEmployeeRequest request,
         CancellationToken cancellationToken = default);
