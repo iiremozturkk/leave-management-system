@@ -33,6 +33,10 @@ public static class DependencyInjection
             IEmployeeReadRepository,
             EmployeeReadRepository>();
 
+        services.AddScoped<
+            IEmployeeWriteRepository,
+            EmployeeWriteRepository>();
+
         services.AddScoped<IEmployeeService, EmployeeService>();
         services.AddScoped<ILeaveRequestService, LeaveRequestService>();
 
