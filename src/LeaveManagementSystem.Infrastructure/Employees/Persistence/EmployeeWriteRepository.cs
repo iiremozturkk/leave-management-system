@@ -9,6 +9,15 @@ public sealed class EmployeeWriteRepository(
     AppDbContext dbContext)
     : IEmployeeWriteRepository
 {
+    public Task<Employee?> GetForUpdateAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.Employees.FirstOrDefaultAsync(
+            employee => employee.Id == id,
+            cancellationToken);
+    }
+
     public Task<bool> DepartmentExistsAsync(
         Guid departmentId,
         CancellationToken cancellationToken = default)

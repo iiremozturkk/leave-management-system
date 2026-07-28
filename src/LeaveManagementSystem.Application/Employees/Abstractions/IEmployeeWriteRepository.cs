@@ -4,6 +4,10 @@ namespace LeaveManagementSystem.Application.Employees.Abstractions;
 
 public interface IEmployeeWriteRepository
 {
+    Task<Employee?> GetForUpdateAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
     Task<bool> DepartmentExistsAsync(
         Guid departmentId,
         CancellationToken cancellationToken = default);

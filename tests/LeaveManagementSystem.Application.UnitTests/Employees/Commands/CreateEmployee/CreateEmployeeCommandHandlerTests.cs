@@ -454,6 +454,13 @@ public sealed class CreateEmployeeCommandHandlerTests
 
         public int SaveChangesCallCount { get; private set; }
 
+        public Task<Employee?> GetForUpdateAsync(
+            Guid id,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<Employee?>(null);
+        }
+
         public Task<bool> DepartmentExistsAsync(
             Guid departmentId,
             CancellationToken cancellationToken = default)
