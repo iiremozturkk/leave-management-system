@@ -1,4 +1,5 @@
 ﻿using LeaveManagementSystem.Application.Employees.Commands.CreateEmployee;
+using LeaveManagementSystem.Application.Employees.Commands.UpdateEmployee;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Application.Employees.Queries.GetEmployeeById;
 using LeaveManagementSystem.Application.Employees.Queries.GetEmployees;
@@ -103,24 +104,24 @@ public sealed class EmployeesController(
                 "Request body is required.");
         }
 
-        try
-        {
-            var employee = await employeeService.UpdateAsync(
+        var employee = await sender.Send(
+            new UpdateEmployeeCommand(
                 id,
-                request,
-                cancellationToken);
+                request.FirstName,
+                request.LastName,
+                request.Email,
+                request.DepartmentId,
+                request.ManagerId,
+                request.Role,
+                request.IsActive),
+            cancellationToken);
 
-            if (employee is null)
-            {
-                return NotFound();
-            }
-
-            return Ok(employee);
-        }
-        catch (InvalidOperationException exception)
+        if (employee is null)
         {
-            return BadRequestProblem(exception.Message);
+            return NotFound();
         }
+
+        return Ok(employee);
     }
 
     [HttpDelete("{id:guid}")]
