@@ -41,6 +41,10 @@ public sealed class TestWebApplicationFactory
             services.AddTransient<
                 IRequestHandler<TestValidationCommand, string>,
                 TestValidationCommandHandler>();
+
+            services.AddTransient<
+                IRequestHandler<TestBusinessRuleCommand, string>,
+                TestBusinessRuleCommandHandler>();
         });
     }
 }

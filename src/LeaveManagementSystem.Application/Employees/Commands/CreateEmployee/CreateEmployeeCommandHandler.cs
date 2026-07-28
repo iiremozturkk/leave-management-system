@@ -1,4 +1,5 @@
-﻿using LeaveManagementSystem.Application.Employees.Abstractions;
+﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Domain.Entities;
 using MediatR;
@@ -16,7 +17,9 @@ public sealed class CreateEmployeeCommandHandler(
     {
         var firstName = request.FirstName.Trim();
         var lastName = request.LastName.Trim();
-        var email = request.Email.Trim().ToLowerInvariant();
+        var email = request.Email
+            .Trim()
+            .ToLowerInvariant();
 
         var departmentExists =
             await employeeWriteRepository.DepartmentExistsAsync(
@@ -25,7 +28,7 @@ public sealed class CreateEmployeeCommandHandler(
 
         if (!departmentExists)
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 "Department does not exist.");
         }
 
@@ -38,7 +41,7 @@ public sealed class CreateEmployeeCommandHandler(
 
             if (!managerExists)
             {
-                throw new InvalidOperationException(
+                throw new BusinessRuleException(
                     "Manager does not exist or is not active.");
             }
         }
@@ -51,7 +54,7 @@ public sealed class CreateEmployeeCommandHandler(
 
         if (emailExists)
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 "Email is already used by another employee.");
         }
 
@@ -72,9 +75,9 @@ public sealed class CreateEmployeeCommandHandler(
             cancellationToken);
 
         return await employeeReadRepository.GetByIdAsync(
-                   employee.Id,
-                   cancellationToken)
-               ?? throw new InvalidOperationException(
-                   "Employee was created but could not be loaded.");
+            employee.Id,
+            cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Employee was created but could not be loaded.");
     }
 }

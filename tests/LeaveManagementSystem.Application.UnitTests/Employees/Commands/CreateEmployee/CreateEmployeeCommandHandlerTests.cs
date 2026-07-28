@@ -1,4 +1,5 @@
-﻿using LeaveManagementSystem.Application.Employees.Abstractions;
+﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.Employees.Commands.CreateEmployee;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Domain.Entities;
@@ -199,7 +200,7 @@ public sealed class CreateEmployeeCommandHandlerTests
             Guid.NewGuid());
 
         var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<BusinessRuleException>(
                 () => handler.Handle(
                     command,
                     CancellationToken.None));
@@ -254,7 +255,7 @@ public sealed class CreateEmployeeCommandHandlerTests
             Guid.NewGuid());
 
         var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<BusinessRuleException>(
                 () => handler.Handle(
                     command,
                     CancellationToken.None));
@@ -308,7 +309,7 @@ public sealed class CreateEmployeeCommandHandlerTests
             Guid.NewGuid());
 
         var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<BusinessRuleException>(
                 () => handler.Handle(
                     command,
                     CancellationToken.None));
