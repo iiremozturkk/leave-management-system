@@ -1,7 +1,6 @@
 ﻿using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Application.Employees.Services;
-using LeaveManagementSystem.Domain.Entities;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,56 +11,6 @@ public sealed class EmployeeService(
     IEmployeeReadRepository employeeReadRepository)
     : IEmployeeService
 {
-    public async Task<EmployeeDto> CreateAsync(
-        CreateEmployeeRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var firstName = NormalizeRequiredText(
-            request.FirstName,
-            "First name");
-
-        var lastName = NormalizeRequiredText(
-            request.LastName,
-            "Last name");
-
-        var email = NormalizeEmail(request.Email);
-
-        await EnsureDepartmentExistsAsync(
-            request.DepartmentId,
-            cancellationToken);
-
-        await EnsureManagerCanBeAssignedAsync(
-            request.ManagerId,
-            employeeId: null,
-            cancellationToken);
-
-        await EnsureEmailIsUniqueAsync(
-            email,
-            currentEmployeeId: null,
-            cancellationToken);
-
-        var employee = new Employee
-        {
-            FirstName = firstName,
-            LastName = lastName,
-            Email = email,
-            DepartmentId = request.DepartmentId,
-            ManagerId = request.ManagerId,
-            Role = request.Role,
-            IsActive = true
-        };
-
-        dbContext.Employees.Add(employee);
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return await employeeReadRepository.GetByIdAsync(
-            employee.Id,
-            cancellationToken)
-            ?? throw new InvalidOperationException(
-                "Employee was created but could not be loaded.");
-    }
-
     public async Task<EmployeeDto?> UpdateAsync(
         Guid id,
         UpdateEmployeeRequest request,
@@ -233,7 +182,8 @@ public sealed class EmployeeService(
         return value.Trim();
     }
 
-    private static string NormalizeEmail(string email)
+    private static string NormalizeEmail(
+        string email)
     {
         return NormalizeRequiredText(
                 email,
