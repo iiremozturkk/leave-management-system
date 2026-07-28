@@ -1,4 +1,5 @@
-﻿using LeaveManagementSystem.Application.Employees.Dtos;
+﻿using LeaveManagementSystem.Application.Employees.Commands.CreateEmployee;
+using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Application.Employees.Queries.GetEmployeeById;
 using LeaveManagementSystem.Application.Employees.Queries.GetEmployees;
 using LeaveManagementSystem.Application.Employees.Services;
@@ -67,21 +68,20 @@ public sealed class EmployeesController(
                 "Request body is required.");
         }
 
-        try
-        {
-            var employee = await employeeService.CreateAsync(
-                request,
-                cancellationToken);
+        var employee = await sender.Send(
+            new CreateEmployeeCommand(
+                request.FirstName,
+                request.LastName,
+                request.Email,
+                request.DepartmentId,
+                request.ManagerId,
+                request.Role),
+            cancellationToken);
 
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = employee.Id },
-                employee);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return BadRequestProblem(exception.Message);
-        }
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = employee.Id },
+            employee);
     }
 
     [HttpPut("{id:guid}")]
