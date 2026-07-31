@@ -117,25 +117,10 @@ public sealed class CreateEmployeeEndpointTests(
         Assert.NotNull(
             problem);
 
-        Assert.Equal(
-            400,
-            problem!.Status);
-
-        Assert.Equal(
-            "A business rule was violated.",
-            problem.Title);
-
-        Assert.Equal(
+        AssertBusinessRuleProblemDetails(
+            problem!,
             "Department does not exist.",
-            problem.Detail);
-
-        Assert.Equal(
-            "/api/employees",
-            problem.Instance);
-
-        Assert.False(
-            string.IsNullOrWhiteSpace(
-                problem.TraceId));
+            "/api/employees");
     }
 
     [Fact]
@@ -195,25 +180,10 @@ public sealed class CreateEmployeeEndpointTests(
             Assert.NotNull(
                 problem);
 
-            Assert.Equal(
-                400,
-                problem!.Status);
-
-            Assert.Equal(
-                "A business rule was violated.",
-                problem.Title);
-
-            Assert.Equal(
+            AssertBusinessRuleProblemDetails(
+                problem!,
                 "Manager does not exist or is not active.",
-                problem.Detail);
-
-            Assert.Equal(
-                "/api/employees",
-                problem.Instance);
-
-            Assert.False(
-                string.IsNullOrWhiteSpace(
-                    problem.TraceId));
+                "/api/employees");
         }
         finally
         {
@@ -314,25 +284,10 @@ public sealed class CreateEmployeeEndpointTests(
             Assert.NotNull(
                 problem);
 
-            Assert.Equal(
-                400,
-                problem!.Status);
-
-            Assert.Equal(
-                "A business rule was violated.",
-                problem.Title);
-
-            Assert.Equal(
+            AssertBusinessRuleProblemDetails(
+                problem!,
                 "Email is already used by another employee.",
-                problem.Detail);
-
-            Assert.Equal(
-                "/api/employees",
-                problem.Instance);
-
-            Assert.False(
-                string.IsNullOrWhiteSpace(
-                    problem.TraceId));
+                "/api/employees");
 
             using var scope =
                 _factory.Services.CreateScope();

@@ -174,25 +174,10 @@ public sealed class UpdateEmployeeEndpointTests(
 
             Assert.NotNull(problem);
 
-            Assert.Equal(
-                400,
-                problem!.Status);
-
-            Assert.Equal(
-                "A business rule was violated.",
-                problem.Title);
-
-            Assert.Equal(
+            AssertBusinessRuleProblemDetails(
+                problem!,
                 "Department does not exist.",
-                problem.Detail);
-
-            Assert.Equal(
-                $"/api/employees/{employeeId}",
-                problem.Instance);
-
-            Assert.False(
-                string.IsNullOrWhiteSpace(
-                    problem.TraceId));
+                $"/api/employees/{employeeId}");
 
             using var getAfterResponse =
                 await _client.GetAsync(
@@ -288,25 +273,10 @@ public sealed class UpdateEmployeeEndpointTests(
 
             Assert.NotNull(problem);
 
-            Assert.Equal(
-                400,
-                problem!.Status);
-
-            Assert.Equal(
-                "A business rule was violated.",
-                problem.Title);
-
-            Assert.Equal(
+            AssertBusinessRuleProblemDetails(
+                problem!,
                 "Manager does not exist or is not active.",
-                problem.Detail);
-
-            Assert.Equal(
-                $"/api/employees/{employeeId}",
-                problem.Instance);
-
-            Assert.False(
-                string.IsNullOrWhiteSpace(
-                    problem.TraceId));
+                $"/api/employees/{employeeId}");
 
             using var getAfterResponse =
                 await _client.GetAsync(
@@ -402,25 +372,10 @@ public sealed class UpdateEmployeeEndpointTests(
 
             Assert.NotNull(problem);
 
-            Assert.Equal(
-                400,
-                problem!.Status);
-
-            Assert.Equal(
-                "A business rule was violated.",
-                problem.Title);
-
-            Assert.Equal(
+            AssertBusinessRuleProblemDetails(
+                problem!,
                 "An employee cannot be their own manager.",
-                problem.Detail);
-
-            Assert.Equal(
-                $"/api/employees/{employeeId}",
-                problem.Instance);
-
-            Assert.False(
-                string.IsNullOrWhiteSpace(
-                    problem.TraceId));
+                $"/api/employees/{employeeId}");
 
             using var getAfterResponse =
                 await _client.GetAsync(
@@ -549,25 +504,10 @@ public sealed class UpdateEmployeeEndpointTests(
 
             Assert.NotNull(problem);
 
-            Assert.Equal(
-                400,
-                problem!.Status);
-
-            Assert.Equal(
-                "A business rule was violated.",
-                problem.Title);
-
-            Assert.Equal(
+            AssertBusinessRuleProblemDetails(
+                problem!,
                 "Email is already used by another employee.",
-                problem.Detail);
-
-            Assert.Equal(
-                $"/api/employees/{targetEmployeeId}",
-                problem.Instance);
-
-            Assert.False(
-                string.IsNullOrWhiteSpace(
-                    problem.TraceId));
+                $"/api/employees/{targetEmployeeId}");
 
             using var getAfterResponse =
                 await _client.GetAsync(
@@ -1072,25 +1012,10 @@ public sealed class UpdateEmployeeEndpointTests(
             Assert.NotNull(
                 problem);
 
-            Assert.Equal(
-                400,
-                problem!.Status);
-
-            Assert.Equal(
-                "A business rule was violated.",
-                problem.Title);
-
-            Assert.Equal(
+            AssertBusinessRuleProblemDetails(
+                problem!,
                 "Manager does not exist or is not active.",
-                problem.Detail);
-
-            Assert.Equal(
-                $"/api/employees/{employeeId}",
-                problem.Instance);
-
-            Assert.False(
-                string.IsNullOrWhiteSpace(
-                    problem.TraceId));
+                $"/api/employees/{employeeId}");
 
             using var getAfterResponse =
                 await _client.GetAsync(

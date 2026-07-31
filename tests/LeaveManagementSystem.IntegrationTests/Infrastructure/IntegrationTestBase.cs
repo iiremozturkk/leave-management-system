@@ -185,4 +185,30 @@ public abstract class IntegrationTestBase
 
         await dbContext.SaveChangesAsync();
     }
+
+    private protected static void AssertBusinessRuleProblemDetails(
+    ProblemDetailsResponse problem,
+    string expectedDetail,
+    string expectedInstance)
+    {
+        Assert.Equal(
+            400,
+            problem.Status);
+
+        Assert.Equal(
+            "A business rule was violated.",
+            problem.Title);
+
+        Assert.Equal(
+            expectedDetail,
+            problem.Detail);
+
+        Assert.Equal(
+            expectedInstance,
+            problem.Instance);
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(
+                problem.TraceId));
+    }
 }
