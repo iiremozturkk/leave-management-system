@@ -1,5 +1,6 @@
 ﻿using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
+using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequestById;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequests;
 using LeaveManagementSystem.Application.LeaveRequests.Services;
 using MediatR;
@@ -37,10 +38,9 @@ public sealed class LeaveRequestsController(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var leaveRequest =
-            await leaveRequestService.GetByIdAsync(
-                id,
-                cancellationToken);
+        var leaveRequest = await sender.Send(
+            new GetLeaveRequestByIdQuery(id),
+            cancellationToken);
 
         if (leaveRequest is null)
         {
