@@ -1,8 +1,6 @@
 ﻿using LeaveManagementSystem.Application.Employees.Abstractions;
-using LeaveManagementSystem.Application.Employees.Services;
 using LeaveManagementSystem.Application.LeaveRequests.Services;
 using LeaveManagementSystem.Infrastructure.Employees.Persistence;
-using LeaveManagementSystem.Infrastructure.Employees.Services;
 using LeaveManagementSystem.Infrastructure.LeaveRequests.Services;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -37,7 +35,6 @@ public static class DependencyInjection
             IEmployeeWriteRepository,
             EmployeeWriteRepository>();
 
-        services.AddScoped<IEmployeeService, EmployeeService>();
         services.AddScoped<ILeaveRequestService, LeaveRequestService>();
 
         return services;
