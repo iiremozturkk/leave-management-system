@@ -4,8 +4,6 @@ namespace LeaveManagementSystem.Application.LeaveRequests.Services;
 
 public interface ILeaveRequestService
 {
-    Task<IReadOnlyList<LeaveRequestDto>> GetAllAsync(CancellationToken cancellationToken = default);
-
     Task<LeaveRequestDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<LeaveRequestDto> CreateAsync(

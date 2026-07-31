@@ -1,32 +1,46 @@
 ﻿using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
+using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequests;
 using LeaveManagementSystem.Application.LeaveRequests.Services;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LeaveManagementSystem.WebAPI.Controllers;
 
 [ApiController]
 [Route("api/leave-requests")]
-public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestService) : ControllerBase
+public sealed class LeaveRequestsController(
+    ISender sender,
+    ILeaveRequestService leaveRequestService)
+    : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<LeaveRequestDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(IReadOnlyList<LeaveRequestDto>),
+        StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<LeaveRequestDto>>> GetAll(
         CancellationToken cancellationToken)
     {
-        var leaveRequests = await leaveRequestService.GetAllAsync(cancellationToken);
+        var leaveRequests = await sender.Send(
+            new GetLeaveRequestsQuery(),
+            cancellationToken);
 
         return Ok(leaveRequests);
     }
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(LeaveRequestDto),
+        StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveRequestDto>> GetById(
         Guid id,
         CancellationToken cancellationToken)
     {
-        var leaveRequest = await leaveRequestService.GetByIdAsync(id, cancellationToken);
+        var leaveRequest =
+            await leaveRequestService.GetByIdAsync(
+                id,
+                cancellationToken);
 
         if (leaveRequest is null)
         {
@@ -37,8 +51,12 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
     }
 
     [HttpGet("balance")]
-    [ProducesResponseType(typeof(LeaveBalanceDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(LeaveBalanceDto),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveBalanceDto>> GetBalance(
         [FromQuery] Guid employeeId,
@@ -48,11 +66,12 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
     {
         try
         {
-            var balance = await leaveRequestService.GetBalanceAsync(
-                employeeId,
-                leaveTypeId,
-                year,
-                cancellationToken);
+            var balance =
+                await leaveRequestService.GetBalanceAsync(
+                    employeeId,
+                    leaveTypeId,
+                    year,
+                    cancellationToken);
 
             if (balance is null)
             {
@@ -63,20 +82,28 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequestProblem(exception.Message);
+            return BadRequestProblem(
+                exception.Message);
         }
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(LeaveRequestDto),
+        StatusCodes.Status201Created)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<LeaveRequestDto>> Create(
         CreateLeaveRequestRequest request,
         CancellationToken cancellationToken)
     {
         try
         {
-            var leaveRequest = await leaveRequestService.CreateAsync(request, cancellationToken);
+            var leaveRequest =
+                await leaveRequestService.CreateAsync(
+                    request,
+                    cancellationToken);
 
             return CreatedAtAction(
                 nameof(GetById),
@@ -85,13 +112,18 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequestProblem(exception.Message);
+            return BadRequestProblem(
+                exception.Message);
         }
     }
 
     [HttpPut("{id:guid}")]
-    [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(LeaveRequestDto),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveRequestDto>> Update(
         Guid id,
@@ -100,7 +132,11 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
     {
         try
         {
-            var leaveRequest = await leaveRequestService.UpdateAsync(id, request, cancellationToken);
+            var leaveRequest =
+                await leaveRequestService.UpdateAsync(
+                    id,
+                    request,
+                    cancellationToken);
 
             if (leaveRequest is null)
             {
@@ -111,14 +147,21 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequestProblem(exception.Message);
+            return BadRequestProblem(
+                exception.Message);
         }
     }
 
     [HttpPost("{id:guid}/approve")]
-    [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        typeof(LeaveRequestDto),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveRequestDto>> Approve(
         Guid id,
@@ -127,10 +170,11 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
     {
         try
         {
-            var leaveRequest = await leaveRequestService.ApproveAsync(
-                id,
-                request,
-                cancellationToken);
+            var leaveRequest =
+                await leaveRequestService.ApproveAsync(
+                    id,
+                    request,
+                    cancellationToken);
 
             if (leaveRequest is null)
             {
@@ -141,18 +185,26 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
         }
         catch (ForbiddenOperationException exception)
         {
-            return ForbiddenProblem(exception.Message);
+            return ForbiddenProblem(
+                exception.Message);
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequestProblem(exception.Message);
+            return BadRequestProblem(
+                exception.Message);
         }
     }
 
     [HttpPost("{id:guid}/reject")]
-    [ProducesResponseType(typeof(LeaveRequestDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        typeof(LeaveRequestDto),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveRequestDto>> Reject(
         Guid id,
@@ -161,10 +213,11 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
     {
         try
         {
-            var leaveRequest = await leaveRequestService.RejectAsync(
-                id,
-                request,
-                cancellationToken);
+            var leaveRequest =
+                await leaveRequestService.RejectAsync(
+                    id,
+                    request,
+                    cancellationToken);
 
             if (leaveRequest is null)
             {
@@ -175,17 +228,21 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
         }
         catch (ForbiddenOperationException exception)
         {
-            return ForbiddenProblem(exception.Message);
+            return ForbiddenProblem(
+                exception.Message);
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequestProblem(exception.Message);
+            return BadRequestProblem(
+                exception.Message);
         }
     }
 
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         Guid id,
@@ -193,7 +250,10 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
     {
         try
         {
-            var deleted = await leaveRequestService.DeleteAsync(id, cancellationToken);
+            var deleted =
+                await leaveRequestService.DeleteAsync(
+                    id,
+                    cancellationToken);
 
             if (!deleted)
             {
@@ -204,11 +264,13 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
         }
         catch (InvalidOperationException exception)
         {
-            return BadRequestProblem(exception.Message);
+            return BadRequestProblem(
+                exception.Message);
         }
     }
 
-    private BadRequestObjectResult BadRequestProblem(string detail)
+    private BadRequestObjectResult BadRequestProblem(
+        string detail)
     {
         return BadRequest(new ProblemDetails
         {
@@ -218,14 +280,16 @@ public sealed class LeaveRequestsController(ILeaveRequestService leaveRequestSer
         });
     }
 
-    private ObjectResult ForbiddenProblem(string detail)
+    private ObjectResult ForbiddenProblem(
+        string detail)
     {
         return StatusCode(
             StatusCodes.Status403Forbidden,
             new ProblemDetails
             {
                 Status = StatusCodes.Status403Forbidden,
-                Title = "Forbidden leave request operation.",
+                Title =
+                    "Forbidden leave request operation.",
                 Detail = detail
             });
     }

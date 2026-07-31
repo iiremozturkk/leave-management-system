@@ -1,10 +1,10 @@
-﻿using System.Linq.Expressions;
-using LeaveManagementSystem.Application.Common.Exceptions;
+﻿using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Services;
 using LeaveManagementSystem.Domain.Entities;
 using LeaveManagementSystem.Domain.Enums;
 using LeaveManagementSystem.Infrastructure.Persistence;
+using LeaveManagementSystem.Infrastructure.LeaveRequests.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace LeaveManagementSystem.Infrastructure.LeaveRequests.Services;
@@ -15,21 +15,12 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
     private const int MinSupportedYear = 2000;
     private const int MaxSupportedYear = 2100;
 
-    public async Task<IReadOnlyList<LeaveRequestDto>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        return await dbContext.LeaveRequests
-            .AsNoTracking()
-            .OrderByDescending(leaveRequest => leaveRequest.CreatedAtUtc)
-            .Select(LeaveRequestProjection)
-            .ToListAsync(cancellationToken);
-    }
-
     public async Task<LeaveRequestDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await dbContext.LeaveRequests
             .AsNoTracking()
             .Where(leaveRequest => leaveRequest.Id == id)
-            .Select(LeaveRequestProjection)
+            .Select(LeaveRequestProjections.ToDto)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -546,24 +537,4 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         return normalizedValue;
     }
 
-    private static readonly Expression<Func<LeaveRequest, LeaveRequestDto>> LeaveRequestProjection = leaveRequest =>
-        new LeaveRequestDto(
-            leaveRequest.Id,
-            leaveRequest.EmployeeId,
-            leaveRequest.Employee.FirstName + " " + leaveRequest.Employee.LastName,
-            leaveRequest.LeaveTypeId,
-            leaveRequest.LeaveType.Name,
-            leaveRequest.StartDate,
-            leaveRequest.EndDate,
-            leaveRequest.RequestedDays,
-            leaveRequest.Status,
-            leaveRequest.Reason,
-            leaveRequest.ManagerComment,
-            leaveRequest.ReviewedAtUtc,
-            leaveRequest.ReviewedByEmployeeId,
-            leaveRequest.ReviewedByEmployee == null
-                ? null
-                : leaveRequest.ReviewedByEmployee.FirstName + " " + leaveRequest.ReviewedByEmployee.LastName,
-            leaveRequest.CreatedAtUtc,
-            leaveRequest.UpdatedAtUtc);
 }
