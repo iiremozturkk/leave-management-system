@@ -1,9 +1,9 @@
 ﻿using LeaveManagementSystem.Application.Employees.Commands.CreateEmployee;
+using LeaveManagementSystem.Application.Employees.Commands.DeleteEmployee;
 using LeaveManagementSystem.Application.Employees.Commands.UpdateEmployee;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Application.Employees.Queries.GetEmployeeById;
 using LeaveManagementSystem.Application.Employees.Queries.GetEmployees;
-using LeaveManagementSystem.Application.Employees.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,8 +13,7 @@ namespace LeaveManagementSystem.WebAPI.Controllers;
 [ApiController]
 [Route("api/employees")]
 public sealed class EmployeesController(
-    ISender sender,
-    IEmployeeService employeeService)
+    ISender sender)
     : ControllerBase
 {
     [HttpGet]
@@ -126,31 +125,21 @@ public sealed class EmployeesController(
 
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(
-        typeof(ProblemDetails),
-        StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         Guid id,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var deleted = await employeeService.DeleteAsync(
-                id,
-                cancellationToken);
+        var deleted = await sender.Send(
+            new DeleteEmployeeCommand(id),
+            cancellationToken);
 
-            if (!deleted)
-            {
-                return NotFound();
-            }
-
-            return NoContent();
-        }
-        catch (InvalidOperationException exception)
+        if (!deleted)
         {
-            return BadRequestProblem(exception.Message);
+            return NotFound();
         }
+
+        return NoContent();
     }
 
     private BadRequestObjectResult BadRequestProblem(
