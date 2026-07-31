@@ -210,33 +210,9 @@ public sealed class UpdateEmployeeEndpointTests(
             Assert.NotNull(
                 employeeAfterUpdate);
 
-            Assert.Equal(
-                employeeBeforeUpdate!.FirstName,
-                employeeAfterUpdate!.FirstName);
-
-            Assert.Equal(
-                employeeBeforeUpdate.LastName,
-                employeeAfterUpdate.LastName);
-
-            Assert.Equal(
-                employeeBeforeUpdate.Email,
-                employeeAfterUpdate.Email);
-
-            Assert.Equal(
-                employeeBeforeUpdate.DepartmentId,
-                employeeAfterUpdate.DepartmentId);
-
-            Assert.Equal(
-                employeeBeforeUpdate.ManagerId,
-                employeeAfterUpdate.ManagerId);
-
-            Assert.Equal(
-                employeeBeforeUpdate.Role,
-                employeeAfterUpdate.Role);
-
-            Assert.Equal(
-                employeeBeforeUpdate.IsActive,
-                employeeAfterUpdate.IsActive);
+            AssertEmployeeStateUnchanged(
+                employeeBeforeUpdate!,
+                employeeAfterUpdate!);
         }
         finally
         {
@@ -348,33 +324,9 @@ public sealed class UpdateEmployeeEndpointTests(
             Assert.NotNull(
                 employeeAfterUpdate);
 
-            Assert.Equal(
-                employeeBeforeUpdate!.FirstName,
-                employeeAfterUpdate!.FirstName);
-
-            Assert.Equal(
-                employeeBeforeUpdate.LastName,
-                employeeAfterUpdate.LastName);
-
-            Assert.Equal(
-                employeeBeforeUpdate.Email,
-                employeeAfterUpdate.Email);
-
-            Assert.Equal(
-                employeeBeforeUpdate.DepartmentId,
-                employeeAfterUpdate.DepartmentId);
-
-            Assert.Equal(
-                employeeBeforeUpdate.ManagerId,
-                employeeAfterUpdate.ManagerId);
-
-            Assert.Equal(
-                employeeBeforeUpdate.Role,
-                employeeAfterUpdate.Role);
-
-            Assert.Equal(
-                employeeBeforeUpdate.IsActive,
-                employeeAfterUpdate.IsActive);
+            AssertEmployeeStateUnchanged(
+                employeeBeforeUpdate!,
+                employeeAfterUpdate!);
         }
         finally
         {
@@ -486,33 +438,9 @@ public sealed class UpdateEmployeeEndpointTests(
             Assert.NotNull(
                 employeeAfterUpdate);
 
-            Assert.Equal(
-                employeeBeforeUpdate!.FirstName,
-                employeeAfterUpdate!.FirstName);
-
-            Assert.Equal(
-                employeeBeforeUpdate.LastName,
-                employeeAfterUpdate.LastName);
-
-            Assert.Equal(
-                employeeBeforeUpdate.Email,
-                employeeAfterUpdate.Email);
-
-            Assert.Equal(
-                employeeBeforeUpdate.DepartmentId,
-                employeeAfterUpdate.DepartmentId);
-
-            Assert.Equal(
-                employeeBeforeUpdate.ManagerId,
-                employeeAfterUpdate.ManagerId);
-
-            Assert.Equal(
-                employeeBeforeUpdate.Role,
-                employeeAfterUpdate.Role);
-
-            Assert.Equal(
-                employeeBeforeUpdate.IsActive,
-                employeeAfterUpdate.IsActive);
+            AssertEmployeeStateUnchanged(
+                employeeBeforeUpdate!,
+                employeeAfterUpdate!);
         }
         finally
         {
@@ -657,33 +585,9 @@ public sealed class UpdateEmployeeEndpointTests(
             Assert.NotNull(
                 targetEmployeeAfterUpdate);
 
-            Assert.Equal(
-                targetEmployeeBeforeUpdate!.FirstName,
-                targetEmployeeAfterUpdate!.FirstName);
-
-            Assert.Equal(
-                targetEmployeeBeforeUpdate.LastName,
-                targetEmployeeAfterUpdate.LastName);
-
-            Assert.Equal(
-                targetEmployeeBeforeUpdate.Email,
-                targetEmployeeAfterUpdate.Email);
-
-            Assert.Equal(
-                targetEmployeeBeforeUpdate.DepartmentId,
-                targetEmployeeAfterUpdate.DepartmentId);
-
-            Assert.Equal(
-                targetEmployeeBeforeUpdate.ManagerId,
-                targetEmployeeAfterUpdate.ManagerId);
-
-            Assert.Equal(
-                targetEmployeeBeforeUpdate.Role,
-                targetEmployeeAfterUpdate.Role);
-
-            Assert.Equal(
-                targetEmployeeBeforeUpdate.IsActive,
-                targetEmployeeAfterUpdate.IsActive);
+            AssertEmployeeStateUnchanged(
+                targetEmployeeBeforeUpdate!,
+                targetEmployeeAfterUpdate!);
         }
         finally
         {
@@ -1204,33 +1108,9 @@ public sealed class UpdateEmployeeEndpointTests(
             Assert.NotNull(
                 employeeAfterUpdate);
 
-            Assert.Equal(
-                employeeBeforeUpdate!.FirstName,
-                employeeAfterUpdate!.FirstName);
-
-            Assert.Equal(
-                employeeBeforeUpdate.LastName,
-                employeeAfterUpdate.LastName);
-
-            Assert.Equal(
-                employeeBeforeUpdate.Email,
-                employeeAfterUpdate.Email);
-
-            Assert.Equal(
-                employeeBeforeUpdate.DepartmentId,
-                employeeAfterUpdate.DepartmentId);
-
-            Assert.Equal(
-                employeeBeforeUpdate.ManagerId,
-                employeeAfterUpdate.ManagerId);
-
-            Assert.Equal(
-                employeeBeforeUpdate.Role,
-                employeeAfterUpdate.Role);
-
-            Assert.Equal(
-                employeeBeforeUpdate.IsActive,
-                employeeAfterUpdate.IsActive);
+            AssertEmployeeStateUnchanged(
+                employeeBeforeUpdate!,
+                employeeAfterUpdate!);
         }
         finally
         {
@@ -1244,5 +1124,38 @@ public sealed class UpdateEmployeeEndpointTests(
                 employeeId: managerId,
                 departmentId: departmentId);
         }
+    }
+
+    private static void AssertEmployeeStateUnchanged(
+        EmployeeResponse expected,
+        EmployeeResponse actual)
+    {
+        Assert.Equal(
+            expected.FirstName,
+            actual.FirstName);
+
+        Assert.Equal(
+            expected.LastName,
+            actual.LastName);
+
+        Assert.Equal(
+            expected.Email,
+            actual.Email);
+
+        Assert.Equal(
+            expected.DepartmentId,
+            actual.DepartmentId);
+
+        Assert.Equal(
+            expected.ManagerId,
+            actual.ManagerId);
+
+        Assert.Equal(
+            expected.Role,
+            actual.Role);
+
+        Assert.Equal(
+            expected.IsActive,
+            actual.IsActive);
     }
 }
