@@ -312,42 +312,36 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         Guid? excludedLeaveRequestId,
         CancellationToken cancellationToken)
     {
-        var leaveType = await dbContext.LeaveTypes
-            .AsNoTracking()
-            .FirstOrDefaultAsync(leaveType => leaveType.Id == leaveTypeId, cancellationToken);
+        var leaveType =
+            await dbContext.LeaveTypes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    leaveType =>
+                        leaveType.Id == leaveTypeId,
+                    cancellationToken);
 
         if (leaveType is null)
         {
             return null;
         }
 
-        var yearStart = new DateOnly(year, 1, 1);
-        var yearEnd = new DateOnly(year, 12, 31);
+        var usedDays =
+            await LeaveBalanceQueries
+                .GetApprovedUsedDaysForYearAsync(
+                    dbContext,
+                    employeeId,
+                    leaveTypeId,
+                    year,
+                    excludedLeaveRequestId,
+                    cancellationToken);
 
-        var approvedLeaveRequestsInYear = await dbContext.LeaveRequests
-            .AsNoTracking()
-            .Where(leaveRequest =>
-                leaveRequest.EmployeeId == employeeId
-                && leaveRequest.LeaveTypeId == leaveTypeId
-                && leaveRequest.Status == LeaveRequestStatus.Approved
-                && leaveRequest.StartDate <= yearEnd
-                && leaveRequest.EndDate >= yearStart
-                && (!excludedLeaveRequestId.HasValue || leaveRequest.Id != excludedLeaveRequestId.Value))
-            .Select(leaveRequest => new
-            {
-                leaveRequest.StartDate,
-                leaveRequest.EndDate
-            })
-            .ToListAsync(cancellationToken);
+        var entitledDays =
+            CalculateEntitledDays(
+                leaveType,
+                year);
 
-        var usedDays = approvedLeaveRequestsInYear
-            .Sum(leaveRequest => CalculateDaysWithinYear(
-                leaveRequest.StartDate,
-                leaveRequest.EndDate,
-                year));
-
-        var entitledDays = CalculateEntitledDays(leaveType, year);
-        var remainingDays = entitledDays - usedDays;
+        var remainingDays =
+            entitledDays - usedDays;
 
         return new LeaveBalanceDto(
             employeeId,

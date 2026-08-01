@@ -1,7 +1,6 @@
 ﻿using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Domain.Entities;
-using LeaveManagementSystem.Domain.Enums;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -45,48 +44,15 @@ public sealed class LeaveBalanceReadRepository(
             return null;
         }
 
-        var yearStart =
-            new DateOnly(
-                year,
-                1,
-                1);
-
-        var yearEnd =
-            new DateOnly(
-                year,
-                12,
-                31);
-
-        var approvedLeaveRequestsInYear =
-            await dbContext.LeaveRequests
-                .AsNoTracking()
-                .Where(
-                    leaveRequest =>
-                        leaveRequest.EmployeeId == employeeId
-                        && leaveRequest.LeaveTypeId == leaveTypeId
-                        && leaveRequest.Status ==
-                            LeaveRequestStatus.Approved
-                        && leaveRequest.StartDate <= yearEnd
-                        && leaveRequest.EndDate >= yearStart
-                        && (!excludedLeaveRequestId.HasValue
-                            || leaveRequest.Id !=
-                                excludedLeaveRequestId.Value))
-                .Select(
-                    leaveRequest => new
-                    {
-                        leaveRequest.StartDate,
-                        leaveRequest.EndDate
-                    })
-                .ToListAsync(
-                    cancellationToken);
-
         var usedDays =
-            approvedLeaveRequestsInYear.Sum(
-                leaveRequest =>
-                    CalculateDaysWithinYear(
-                        leaveRequest.StartDate,
-                        leaveRequest.EndDate,
-                        year));
+            await LeaveBalanceQueries
+                .GetApprovedUsedDaysForYearAsync(
+                    dbContext,
+                    employeeId,
+                    leaveTypeId,
+                    year,
+                    excludedLeaveRequestId,
+                    cancellationToken);
 
         var entitledDays =
             CalculateEntitledDays(
@@ -113,42 +79,5 @@ public sealed class LeaveBalanceReadRepository(
         _ = year; // Reserved for future year-specific entitlement rules.
 
         return leaveType.DefaultAnnualAllowanceDays;
-    }
-
-    private static int CalculateDaysWithinYear(
-        DateOnly startDate,
-        DateOnly endDate,
-        int year)
-    {
-        var yearStart =
-            new DateOnly(
-                year,
-                1,
-                1);
-
-        var yearEnd =
-            new DateOnly(
-                year,
-                12,
-                31);
-
-        var effectiveStartDate =
-            startDate > yearStart
-                ? startDate
-                : yearStart;
-
-        var effectiveEndDate =
-            endDate < yearEnd
-                ? endDate
-                : yearEnd;
-
-        if (effectiveEndDate < effectiveStartDate)
-        {
-            return 0;
-        }
-
-        return effectiveEndDate.DayNumber
-            - effectiveStartDate.DayNumber
-            + 1;
     }
 }
