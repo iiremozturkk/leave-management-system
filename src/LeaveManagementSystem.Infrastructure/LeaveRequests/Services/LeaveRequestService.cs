@@ -134,43 +134,6 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         return true;
     }
 
-    public async Task<LeaveBalanceDto?> GetBalanceAsync(
-        Guid employeeId,
-        Guid leaveTypeId,
-        int year,
-        CancellationToken cancellationToken = default)
-    {
-        if (employeeId == Guid.Empty)
-        {
-            throw new InvalidOperationException("Employee id cannot be empty.");
-        }
-
-        if (leaveTypeId == Guid.Empty)
-        {
-            throw new InvalidOperationException("Leave type id cannot be empty.");
-        }
-
-        EnsureSupportedYear(year);
-
-        var employeeExists = await dbContext.Employees
-            .AsNoTracking()
-            .AnyAsync(
-                employee => employee.Id == employeeId && employee.IsActive,
-                cancellationToken);
-
-        if (!employeeExists)
-        {
-            return null;
-        }
-
-        return await CalculateBalanceAsync(
-            employeeId,
-            leaveTypeId,
-            year,
-            null,
-            cancellationToken);
-    }
-
     public async Task<LeaveRequestDto?> ApproveAsync(
         Guid id,
         ReviewLeaveRequestRequest request,
@@ -293,7 +256,7 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
                 leaveRequest =>
                     leaveRequest.EmployeeId == employeeId
                     && leaveRequest.Status != LeaveRequestStatus.Rejected
-                    && (currentLeaveRequestId == null || leaveRequest.Id != currentLeaveRequestId.Value)
+                    && (!currentLeaveRequestId.HasValue || leaveRequest.Id != currentLeaveRequestId.Value)
                     && leaveRequest.StartDate <= endDate
                     && startDate <= leaveRequest.EndDate,
                 cancellationToken);
@@ -369,7 +332,7 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
                 && leaveRequest.Status == LeaveRequestStatus.Approved
                 && leaveRequest.StartDate <= yearEnd
                 && leaveRequest.EndDate >= yearStart
-                && (excludedLeaveRequestId == null || leaveRequest.Id != excludedLeaveRequestId.Value))
+                && (!excludedLeaveRequestId.HasValue || leaveRequest.Id != excludedLeaveRequestId.Value))
             .Select(leaveRequest => new
             {
                 leaveRequest.StartDate,

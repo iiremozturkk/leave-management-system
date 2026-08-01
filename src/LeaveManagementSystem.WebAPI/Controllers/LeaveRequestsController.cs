@@ -1,5 +1,6 @@
 ﻿using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
+using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveBalance;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequestById;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequests;
 using LeaveManagementSystem.Application.LeaveRequests.Services;
@@ -66,12 +67,12 @@ public sealed class LeaveRequestsController(
     {
         try
         {
-            var balance =
-                await leaveRequestService.GetBalanceAsync(
+            var balance = await sender.Send(
+                new GetLeaveBalanceQuery(
                     employeeId,
                     leaveTypeId,
-                    year,
-                    cancellationToken);
+                    year),
+                cancellationToken);
 
             if (balance is null)
             {

@@ -17,12 +17,6 @@ public interface ILeaveRequestService
 
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
-    Task<LeaveBalanceDto?> GetBalanceAsync(
-        Guid employeeId,
-        Guid leaveTypeId,
-        int year,
-        CancellationToken cancellationToken = default);
-
     Task<LeaveRequestDto?> ApproveAsync(
         Guid id,
         ReviewLeaveRequestRequest request,
