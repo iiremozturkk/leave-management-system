@@ -8,11 +8,6 @@ public interface ILeaveRequestService
         Guid id,
         CancellationToken cancellationToken = default);
 
-    Task<LeaveRequestDto?> UpdateAsync(
-        Guid id,
-        UpdateLeaveRequestRequest request,
-        CancellationToken cancellationToken = default);
-
     Task<bool> DeleteAsync(
         Guid id,
         CancellationToken cancellationToken = default);

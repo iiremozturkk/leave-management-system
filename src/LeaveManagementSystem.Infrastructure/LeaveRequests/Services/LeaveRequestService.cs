@@ -11,7 +11,6 @@ namespace LeaveManagementSystem.Infrastructure.LeaveRequests.Services;
 
 public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestService
 {
-    private const int ReasonMaxLength = 500;
     private const int MinSupportedYear = 2000;
     private const int MaxSupportedYear = 2100;
 
@@ -22,54 +21,6 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
             .Where(leaveRequest => leaveRequest.Id == id)
             .Select(LeaveRequestProjections.ToDto)
             .FirstOrDefaultAsync(cancellationToken);
-    }
-
-    public async Task<LeaveRequestDto?> UpdateAsync(
-        Guid id,
-        UpdateLeaveRequestRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var leaveRequest = await dbContext.LeaveRequests
-            .FirstOrDefaultAsync(leaveRequest => leaveRequest.Id == id, cancellationToken);
-
-        if (leaveRequest is null)
-        {
-            return null;
-        }
-
-        EnsureLeaveRequestCanBeModified(leaveRequest);
-
-        var reason = NormalizeRequiredText(request.Reason, "Reason", ReasonMaxLength);
-
-        EnsureSupportedDateRange(request.StartDate, request.EndDate);
-
-        await EnsureLeaveTypeExistsAsync(request.LeaveTypeId, cancellationToken);
-
-        await EnsureNoOverlappingLeaveRequestAsync(
-            leaveRequest.EmployeeId,
-            request.StartDate,
-            request.EndDate,
-            leaveRequest.Id,
-            cancellationToken);
-
-        await EnsureEnoughLeaveBalanceAsync(
-            leaveRequest.EmployeeId,
-            request.LeaveTypeId,
-            request.StartDate,
-            request.EndDate,
-            leaveRequest.Id,
-            cancellationToken);
-
-        leaveRequest.LeaveTypeId = request.LeaveTypeId;
-        leaveRequest.Reason = reason;
-        leaveRequest.SetDateRange(request.StartDate, request.EndDate);
-        leaveRequest.UpdatedAtUtc = DateTime.UtcNow;
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return await GetByIdAsync(leaveRequest.Id, cancellationToken);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -154,53 +105,11 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         return await GetByIdAsync(leaveRequest.Id, cancellationToken);
     }
 
-    private async Task EnsureLeaveTypeExistsAsync(
-        Guid leaveTypeId,
-        CancellationToken cancellationToken)
-    {
-        if (leaveTypeId == Guid.Empty)
-        {
-            throw new InvalidOperationException("Leave type id cannot be empty.");
-        }
-
-        var exists = await dbContext.LeaveTypes
-            .AnyAsync(leaveType => leaveType.Id == leaveTypeId, cancellationToken);
-
-        if (!exists)
-        {
-            throw new InvalidOperationException("Leave type does not exist.");
-        }
-    }
-
     private static void EnsureLeaveRequestCanBeModified(LeaveRequest leaveRequest)
     {
         if (leaveRequest.Status != LeaveRequestStatus.Pending)
         {
             throw new InvalidOperationException("Only pending leave requests can be modified.");
-        }
-    }
-
-    private async Task EnsureNoOverlappingLeaveRequestAsync(
-        Guid employeeId,
-        DateOnly startDate,
-        DateOnly endDate,
-        Guid? currentLeaveRequestId,
-        CancellationToken cancellationToken)
-    {
-        var hasOverlap = await dbContext.LeaveRequests
-            .AnyAsync(
-                leaveRequest =>
-                    leaveRequest.EmployeeId == employeeId
-                    && leaveRequest.Status != LeaveRequestStatus.Rejected
-                    && (!currentLeaveRequestId.HasValue || leaveRequest.Id != currentLeaveRequestId.Value)
-                    && leaveRequest.StartDate <= endDate
-                    && startDate <= leaveRequest.EndDate,
-                cancellationToken);
-
-        if (hasOverlap)
-        {
-            throw new InvalidOperationException(
-                "Employee already has a leave request in the selected date range.");
         }
     }
 
@@ -411,23 +320,6 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         }
 
         return endDate.DayNumber - startDate.DayNumber + 1;
-    }
-
-    private static string NormalizeRequiredText(string value, string fieldName, int maxLength)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidOperationException($"{fieldName} cannot be empty.");
-        }
-
-        var normalizedValue = value.Trim();
-
-        if (normalizedValue.Length > maxLength)
-        {
-            throw new InvalidOperationException($"{fieldName} cannot exceed {maxLength} characters.");
-        }
-
-        return normalizedValue;
     }
 
 }
