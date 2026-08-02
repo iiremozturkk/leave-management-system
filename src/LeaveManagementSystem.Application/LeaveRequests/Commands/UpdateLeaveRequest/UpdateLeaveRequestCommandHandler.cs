@@ -1,7 +1,6 @@
 ﻿using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Rules;
-using LeaveManagementSystem.Domain.Enums;
 using MediatR;
 
 namespace LeaveManagementSystem.Application.LeaveRequests.Commands.UpdateLeaveRequest;
@@ -28,7 +27,7 @@ public sealed class UpdateLeaveRequestCommandHandler(
             return null;
         }
 
-        EnsureCanBeModified(
+        LeaveRequestRules.EnsureCanBeModified(
             leaveRequest.Status);
 
         var reason =
@@ -84,15 +83,5 @@ public sealed class UpdateLeaveRequestCommandHandler(
         return await readRepository.GetByIdAsync(
             leaveRequest.Id,
             cancellationToken);
-    }
-
-    private static void EnsureCanBeModified(
-        LeaveRequestStatus status)
-    {
-        if (status != LeaveRequestStatus.Pending)
-        {
-            throw new InvalidOperationException(
-                "Only pending leave requests can be modified.");
-        }
     }
 }

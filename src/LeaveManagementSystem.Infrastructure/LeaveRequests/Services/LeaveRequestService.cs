@@ -23,24 +23,6 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var leaveRequest = await dbContext.LeaveRequests
-            .FirstOrDefaultAsync(leaveRequest => leaveRequest.Id == id, cancellationToken);
-
-        if (leaveRequest is null)
-        {
-            return false;
-        }
-
-        EnsureLeaveRequestCanBeModified(leaveRequest);
-
-        dbContext.LeaveRequests.Remove(leaveRequest);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return true;
-    }
-
     public async Task<LeaveRequestDto?> ApproveAsync(
         Guid id,
         ReviewLeaveRequestRequest request,
@@ -103,14 +85,6 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(leaveRequest.Id, cancellationToken);
-    }
-
-    private static void EnsureLeaveRequestCanBeModified(LeaveRequest leaveRequest)
-    {
-        if (leaveRequest.Status != LeaveRequestStatus.Pending)
-        {
-            throw new InvalidOperationException("Only pending leave requests can be modified.");
-        }
     }
 
     private async Task EnsureEnoughLeaveBalanceAsync(
@@ -321,5 +295,4 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
 
         return endDate.DayNumber - startDate.DayNumber + 1;
     }
-
 }

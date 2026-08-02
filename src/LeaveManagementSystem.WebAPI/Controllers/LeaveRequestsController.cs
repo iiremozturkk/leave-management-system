@@ -1,5 +1,6 @@
 ﻿using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.CreateLeaveRequest;
+using LeaveManagementSystem.Application.LeaveRequests.Commands.DeleteLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.UpdateLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveBalance;
@@ -261,8 +262,9 @@ public sealed class LeaveRequestsController(
         try
         {
             var deleted =
-                await leaveRequestService.DeleteAsync(
-                    id,
+                await sender.Send(
+                    new DeleteLeaveRequestCommand(
+                        id),
                     cancellationToken);
 
             if (!deleted)

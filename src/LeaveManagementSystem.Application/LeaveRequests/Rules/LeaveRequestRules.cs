@@ -1,10 +1,21 @@
-﻿namespace LeaveManagementSystem.Application.LeaveRequests.Rules;
+﻿using LeaveManagementSystem.Domain.Enums;
+namespace LeaveManagementSystem.Application.LeaveRequests.Rules;
 
 internal static class LeaveRequestRules
 {
     private const int ReasonMaxLength = 500;
     private const int MinSupportedYear = 2000;
     private const int MaxSupportedYear = 2100;
+
+    internal static void EnsureCanBeModified(
+        LeaveRequestStatus status)
+    {
+        if (status != LeaveRequestStatus.Pending)
+        {
+            throw new InvalidOperationException(
+                "Only pending leave requests can be modified.");
+        }
+    }
 
     internal static string NormalizeReason(
         string reason)
