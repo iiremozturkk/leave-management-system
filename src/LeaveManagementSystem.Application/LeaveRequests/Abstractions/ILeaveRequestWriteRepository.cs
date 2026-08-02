@@ -4,6 +4,10 @@ namespace LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 
 public interface ILeaveRequestWriteRepository
 {
+    Task<LeaveRequest?> GetForUpdateAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
     Task<bool> ActiveEmployeeExistsAsync(
         Guid employeeId,
         CancellationToken cancellationToken = default);

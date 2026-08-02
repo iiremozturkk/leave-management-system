@@ -10,6 +10,17 @@ public sealed class LeaveRequestWriteRepository(
     AppDbContext dbContext)
     : ILeaveRequestWriteRepository
 {
+    public Task<LeaveRequest?> GetForUpdateAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.LeaveRequests
+            .FirstOrDefaultAsync(
+                leaveRequest =>
+                    leaveRequest.Id == id,
+                cancellationToken);
+    }
+
     public Task<bool> ActiveEmployeeExistsAsync(
         Guid employeeId,
         CancellationToken cancellationToken = default)

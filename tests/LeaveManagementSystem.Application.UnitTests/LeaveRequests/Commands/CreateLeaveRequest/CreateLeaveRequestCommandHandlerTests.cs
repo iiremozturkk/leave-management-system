@@ -1285,6 +1285,14 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             private set;
         }
 
+        public Task<LeaveRequest?> GetForUpdateAsync(
+            Guid id,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "Unexpected repository call.");
+        }
+
         public Task<bool> ActiveEmployeeExistsAsync(
             Guid employeeId,
             CancellationToken cancellationToken = default)
