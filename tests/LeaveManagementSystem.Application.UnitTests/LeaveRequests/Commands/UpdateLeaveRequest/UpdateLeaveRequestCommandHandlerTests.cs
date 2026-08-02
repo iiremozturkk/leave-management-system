@@ -30,7 +30,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
 
         Assert.Equal(
             0,
-            writeRepository.GetForUpdateCallCount);
+            writeRepository.GetForModificationCallCount);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
 
         Assert.Equal(
             1,
-            writeRepository.GetForUpdateCallCount);
+            writeRepository.GetForModificationCallCount);
 
         Assert.Equal(
             leaveRequestId,
@@ -88,7 +88,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "GetForUpdate"
+                "GetForModification"
             },
             callSequence);
     }
@@ -154,7 +154,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "GetForUpdate"
+                "GetForModification"
             },
             callSequence);
 
@@ -241,7 +241,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "GetForUpdate"
+                "GetForModification"
             },
             callSequence);
 
@@ -317,7 +317,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "GetForUpdate"
+                "GetForModification"
             },
             callSequence);
 
@@ -372,7 +372,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "GetForUpdate"
+                "GetForModification"
             },
             callSequence);
 
@@ -437,7 +437,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "GetForUpdate"
+                "GetForModification"
             },
             callSequence);
 
@@ -492,7 +492,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "GetForUpdate"
+                "GetForModification"
             },
             callSequence);
 
@@ -574,7 +574,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "GetForUpdate",
+                "GetForModification",
                 "GetLeaveType"
             },
             callSequence);
@@ -695,7 +695,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-            "GetForUpdate",
+            "GetForModification",
             "GetLeaveType",
             "HasOverlap"
             },
@@ -850,7 +850,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-            "GetForUpdate",
+            "GetForModification",
             "GetLeaveType",
             "HasOverlap",
             "GetApprovedUsedDaysForYear:2026"
@@ -1032,7 +1032,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-            "GetForUpdate",
+            "GetForModification",
             "GetLeaveType",
             "HasOverlap",
             "GetApprovedUsedDaysForYear:2026",
@@ -1227,7 +1227,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-            "GetForUpdate",
+            "GetForModification",
             "GetLeaveType",
             "HasOverlap",
             "GetApprovedUsedDaysForYear:2026",
@@ -1388,7 +1388,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-            "GetForUpdate",
+            "GetForModification",
             "GetLeaveType",
             "HasOverlap",
             "GetApprovedUsedDaysForYear:2026",
@@ -1515,7 +1515,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-            "GetForUpdate",
+            "GetForModification",
             "GetLeaveType",
             "HasOverlap",
             "GetApprovedUsedDaysForYear:2026",
@@ -1703,7 +1703,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             private set;
         }
 
-        public int GetForUpdateCallCount
+        public int GetForModificationCallCount
         {
             get;
             private set;
@@ -1721,11 +1721,11 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             get;
         } = new();
 
-        public Task<LeaveRequest?> GetForUpdateAsync(
+        public Task<LeaveRequest?> GetForModificationAsync(
             Guid id,
             CancellationToken cancellationToken = default)
         {
-            GetForUpdateCallCount++;
+            GetForModificationCallCount++;
             RequestedId =
                 id;
 
@@ -1733,7 +1733,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
                 cancellationToken);
 
             callSequence?.Add(
-                "GetForUpdate");
+                "GetForModification");
 
             return Task.FromResult(
                 LeaveRequestResult);

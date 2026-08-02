@@ -4,7 +4,7 @@ namespace LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 
 public interface ILeaveRequestWriteRepository
 {
-    Task<LeaveRequest?> GetForUpdateAsync(
+    Task<LeaveRequest?> GetForModificationAsync(
         Guid id,
         CancellationToken cancellationToken = default);
 

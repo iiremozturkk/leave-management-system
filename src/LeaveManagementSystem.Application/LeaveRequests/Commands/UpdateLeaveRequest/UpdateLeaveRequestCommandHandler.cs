@@ -19,7 +19,7 @@ public sealed class UpdateLeaveRequestCommandHandler(
             request);
 
         var leaveRequest =
-            await writeRepository.GetForUpdateAsync(
+            await writeRepository.GetForModificationAsync(
                 request.Id,
                 cancellationToken);
 

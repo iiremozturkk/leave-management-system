@@ -1285,7 +1285,7 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             private set;
         }
 
-        public Task<LeaveRequest?> GetForUpdateAsync(
+        public Task<LeaveRequest?> GetForModificationAsync(
             Guid id,
             CancellationToken cancellationToken = default)
         {

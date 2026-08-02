@@ -10,7 +10,7 @@ public sealed class LeaveRequestWriteRepository(
     AppDbContext dbContext)
     : ILeaveRequestWriteRepository
 {
-    public Task<LeaveRequest?> GetForUpdateAsync(
+    public Task<LeaveRequest?> GetForModificationAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
