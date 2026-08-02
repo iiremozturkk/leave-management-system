@@ -95,6 +95,16 @@ public sealed class LeaveRequestWriteRepository(
             leaveRequest);
     }
 
+    public void Remove(
+        LeaveRequest leaveRequest)
+    {
+        ArgumentNullException.ThrowIfNull(
+            leaveRequest);
+
+        dbContext.LeaveRequests.Remove(
+            leaveRequest);
+    }
+
     public async Task SaveChangesAsync(
         CancellationToken cancellationToken = default)
     {

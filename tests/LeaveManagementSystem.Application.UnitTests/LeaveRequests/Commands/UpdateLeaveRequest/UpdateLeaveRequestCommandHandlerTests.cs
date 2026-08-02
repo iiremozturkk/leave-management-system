@@ -1838,6 +1838,13 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
                 "Unexpected repository call.");
         }
 
+        public void Remove(
+            LeaveRequest leaveRequest)
+        {
+            throw new InvalidOperationException(
+                "Unexpected repository call.");
+        }
+
         public Task SaveChangesAsync(
             CancellationToken cancellationToken = default)
         {

@@ -33,6 +33,9 @@ public interface ILeaveRequestWriteRepository
     void Add(
         LeaveRequest leaveRequest);
 
+    void Remove(
+        LeaveRequest leaveRequest);
+
     Task SaveChangesAsync(
         CancellationToken cancellationToken = default);
 }

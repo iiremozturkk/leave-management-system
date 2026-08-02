@@ -1402,6 +1402,13 @@ public sealed class CreateLeaveRequestCommandHandlerTests
                 "Add");
         }
 
+        public void Remove(
+            LeaveRequest leaveRequest)
+        {
+            throw new InvalidOperationException(
+                "Unexpected repository call.");
+        }
+
         public Task SaveChangesAsync(
             CancellationToken cancellationToken = default)
         {
