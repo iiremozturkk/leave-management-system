@@ -24,50 +24,6 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<LeaveRequestDto> CreateAsync(
-        CreateLeaveRequestRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var reason = NormalizeRequiredText(request.Reason, "Reason", ReasonMaxLength);
-
-        EnsureSupportedDateRange(request.StartDate, request.EndDate);
-
-        await EnsureEmployeeExistsAndIsActiveAsync(request.EmployeeId, cancellationToken);
-        await EnsureLeaveTypeExistsAsync(request.LeaveTypeId, cancellationToken);
-
-        await EnsureNoOverlappingLeaveRequestAsync(
-            request.EmployeeId,
-            request.StartDate,
-            request.EndDate,
-            null,
-            cancellationToken);
-
-        await EnsureEnoughLeaveBalanceAsync(
-            request.EmployeeId,
-            request.LeaveTypeId,
-            request.StartDate,
-            request.EndDate,
-            null,
-            cancellationToken);
-
-        var leaveRequest = new LeaveRequest
-        {
-            EmployeeId = request.EmployeeId,
-            LeaveTypeId = request.LeaveTypeId,
-            Reason = reason
-        };
-
-        leaveRequest.SetDateRange(request.StartDate, request.EndDate);
-
-        dbContext.LeaveRequests.Add(leaveRequest);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return await GetByIdAsync(leaveRequest.Id, cancellationToken)
-            ?? throw new InvalidOperationException("Leave request was created but could not be loaded.");
-    }
-
     public async Task<LeaveRequestDto?> UpdateAsync(
         Guid id,
         UpdateLeaveRequestRequest request,
@@ -196,26 +152,6 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await GetByIdAsync(leaveRequest.Id, cancellationToken);
-    }
-
-    private async Task EnsureEmployeeExistsAndIsActiveAsync(
-        Guid employeeId,
-        CancellationToken cancellationToken)
-    {
-        if (employeeId == Guid.Empty)
-        {
-            throw new InvalidOperationException("Employee id cannot be empty.");
-        }
-
-        var exists = await dbContext.Employees
-            .AnyAsync(
-                employee => employee.Id == employeeId && employee.IsActive,
-                cancellationToken);
-
-        if (!exists)
-        {
-            throw new InvalidOperationException("Employee does not exist or is not active.");
-        }
     }
 
     private async Task EnsureLeaveTypeExistsAsync(

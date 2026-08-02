@@ -1,4 +1,5 @@
 ﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.LeaveRequests.Commands.CreateLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveBalance;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequestById;
@@ -101,10 +102,14 @@ public sealed class LeaveRequestsController(
     {
         try
         {
-            var leaveRequest =
-                await leaveRequestService.CreateAsync(
-                    request,
-                    cancellationToken);
+            var leaveRequest = await sender.Send(
+                new CreateLeaveRequestCommand(
+                    request.EmployeeId,
+                    request.LeaveTypeId,
+                    request.StartDate,
+                    request.EndDate,
+                    request.Reason),
+                cancellationToken);
 
             return CreatedAtAction(
                 nameof(GetById),

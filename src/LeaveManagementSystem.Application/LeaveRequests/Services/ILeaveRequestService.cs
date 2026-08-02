@@ -4,10 +4,8 @@ namespace LeaveManagementSystem.Application.LeaveRequests.Services;
 
 public interface ILeaveRequestService
 {
-    Task<LeaveRequestDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-
-    Task<LeaveRequestDto> CreateAsync(
-        CreateLeaveRequestRequest request,
+    Task<LeaveRequestDto?> GetByIdAsync(
+        Guid id,
         CancellationToken cancellationToken = default);
 
     Task<LeaveRequestDto?> UpdateAsync(
@@ -15,7 +13,9 @@ public interface ILeaveRequestService
         UpdateLeaveRequestRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
 
     Task<LeaveRequestDto?> ApproveAsync(
         Guid id,
