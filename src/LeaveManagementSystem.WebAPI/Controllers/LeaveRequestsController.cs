@@ -2,12 +2,12 @@
 using LeaveManagementSystem.Application.LeaveRequests.Commands.ApproveLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.CreateLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.DeleteLeaveRequest;
+using LeaveManagementSystem.Application.LeaveRequests.Commands.RejectLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.UpdateLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveBalance;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequestById;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequests;
-using LeaveManagementSystem.Application.LeaveRequests.Services;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,8 +16,7 @@ namespace LeaveManagementSystem.WebAPI.Controllers;
 [ApiController]
 [Route("api/leave-requests")]
 public sealed class LeaveRequestsController(
-    ISender sender,
-    ILeaveRequestService leaveRequestService)
+    ISender sender)
     : ControllerBase
 {
     [HttpGet]
@@ -211,26 +210,28 @@ public sealed class LeaveRequestsController(
 
     [HttpPost("{id:guid}/reject")]
     [ProducesResponseType(
-        typeof(LeaveRequestDto),
-        StatusCodes.Status200OK)]
+    typeof(LeaveRequestDto),
+    StatusCodes.Status200OK)]
     [ProducesResponseType(
-        typeof(ProblemDetails),
-        StatusCodes.Status400BadRequest)]
+    typeof(ProblemDetails),
+    StatusCodes.Status400BadRequest)]
     [ProducesResponseType(
-        typeof(ProblemDetails),
-        StatusCodes.Status403Forbidden)]
+    typeof(ProblemDetails),
+    StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveRequestDto>> Reject(
-        Guid id,
-        ReviewLeaveRequestRequest request,
-        CancellationToken cancellationToken)
+    Guid id,
+    ReviewLeaveRequestRequest request,
+    CancellationToken cancellationToken)
     {
         try
         {
             var leaveRequest =
-                await leaveRequestService.RejectAsync(
-                    id,
-                    request,
+                await sender.Send(
+                    new RejectLeaveRequestCommand(
+                        id,
+                        request.ReviewerEmployeeId,
+                        request.ManagerComment),
                     cancellationToken);
 
             if (leaveRequest is null)

@@ -672,6 +672,93 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
     }
 
     [Fact]
+    public async Task NonDirectManagerCannotRejectLeaveRequest_ReturnsForbidden()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var testData = await CreateTeamAsync();
+
+        try
+        {
+            var leaveRequest = await CreateLeaveRequestAsync(
+                testData.EmployeeId,
+                "2026-10-10",
+                "2026-10-12",
+                "Non-direct manager rejection test.");
+
+            var reviewRequest = new
+            {
+                reviewerEmployeeId = testData.OtherManagerId,
+                managerComment =
+                    "Trying to reject as another manager."
+            };
+
+            var response = await _client.PostAsJsonAsync(
+                $"/api/leave-requests/{leaveRequest.Id}/reject",
+                reviewRequest);
+
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+
+            var problem =
+                await response.Content
+                    .ReadFromJsonAsync<ProblemDetailsResponse>(
+                        JsonOptions);
+
+            Assert.NotNull(problem);
+
+            Assert.Equal(
+                403,
+                problem!.Status);
+
+            Assert.Equal(
+                "Forbidden leave request operation.",
+                problem.Title);
+
+            Assert.Contains(
+                "direct manager",
+                problem.Detail);
+        }
+        finally
+        {
+            await CleanupAsync(
+                testData.DepartmentId);
+        }
+    }
+
+    [Fact]
+    public async Task RejectNonExistentLeaveRequest_ReturnsNotFound()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var testData = await CreateTeamAsync();
+
+        try
+        {
+            var reviewRequest = new
+            {
+                reviewerEmployeeId = testData.ManagerId,
+                managerComment =
+                    "Trying to reject a non-existent leave request."
+            };
+
+            var response = await _client.PostAsJsonAsync(
+                $"/api/leave-requests/{Guid.NewGuid()}/reject",
+                reviewRequest);
+
+            Assert.Equal(
+                HttpStatusCode.NotFound,
+                response.StatusCode);
+        }
+        finally
+        {
+            await CleanupAsync(
+                testData.DepartmentId);
+        }
+    }
+
+    [Fact]
     public async Task DirectManagerCanRejectLeaveRequest()
     {
         await EnsureDatabaseReadyAsync();
