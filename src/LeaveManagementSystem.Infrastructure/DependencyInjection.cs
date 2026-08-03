@@ -1,5 +1,7 @@
 ﻿using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
+using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Infrastructure.Authentication.Security;
 using LeaveManagementSystem.Infrastructure.Employees.Persistence;
 using LeaveManagementSystem.Infrastructure.LeaveRequests.Persistence;
 using LeaveManagementSystem.Infrastructure.Persistence;
@@ -26,6 +28,10 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString));
+
+        services.AddScoped<
+            IPasswordHashService,
+            PasswordHashService>();
 
         services.AddScoped<
             IEmployeeReadRepository,
