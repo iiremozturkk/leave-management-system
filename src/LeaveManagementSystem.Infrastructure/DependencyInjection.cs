@@ -35,7 +35,8 @@ public static class DependencyInjection
         services.AddOptions<JwtOptions>()
             .Bind(
                 configuration.GetSection(
-                    JwtOptions.SectionName));
+                    JwtOptions.SectionName))
+            .ValidateOnStart();
 
         services.AddSingleton<
             IValidateOptions<JwtOptions>,
