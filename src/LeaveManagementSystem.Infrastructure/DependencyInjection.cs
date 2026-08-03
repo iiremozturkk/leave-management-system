@@ -2,6 +2,7 @@
 using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Infrastructure.Authentication.Jwt;
+using LeaveManagementSystem.Infrastructure.Authentication.Persistence;
 using LeaveManagementSystem.Infrastructure.Authentication.Security;
 using LeaveManagementSystem.Infrastructure.Employees.Persistence;
 using LeaveManagementSystem.Infrastructure.LeaveRequests.Persistence;
@@ -50,6 +51,14 @@ public static class DependencyInjection
         services.AddScoped<
             IPasswordHashService,
             PasswordHashService>();
+
+        services.AddScoped<
+            IUserAccountReadRepository,
+            UserAccountReadRepository>();
+
+        services.AddScoped<
+            IUserAccountWriteRepository,
+            UserAccountWriteRepository>();
 
         services.AddScoped<
             IEmployeeReadRepository,
