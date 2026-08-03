@@ -39,6 +39,14 @@ public sealed class UserAccount : BaseEntity
     {
         EnsurePasswordHashIsValid(passwordHash);
 
+        if (string.Equals(
+            PasswordHash,
+            passwordHash,
+            StringComparison.Ordinal))
+        {
+            return;
+        }
+
         PasswordHash = passwordHash;
         UpdatedAtUtc = DateTime.UtcNow;
     }
