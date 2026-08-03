@@ -23,43 +23,6 @@ public sealed class LeaveRequestService(AppDbContext dbContext) : ILeaveRequestS
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<LeaveRequestDto?> ApproveAsync(
-        Guid id,
-        ReviewLeaveRequestRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var leaveRequest = await dbContext.LeaveRequests
-            .FirstOrDefaultAsync(leaveRequest => leaveRequest.Id == id, cancellationToken);
-
-        if (leaveRequest is null)
-        {
-            return null;
-        }
-
-        await EnsureReviewerCanReviewAsync(
-            leaveRequest,
-            request.ReviewerEmployeeId,
-            cancellationToken);
-
-        EnsureSupportedDateRange(leaveRequest.StartDate, leaveRequest.EndDate);
-
-        await EnsureEnoughLeaveBalanceAsync(
-            leaveRequest.EmployeeId,
-            leaveRequest.LeaveTypeId,
-            leaveRequest.StartDate,
-            leaveRequest.EndDate,
-            leaveRequest.Id,
-            cancellationToken);
-
-        leaveRequest.Approve(request.ReviewerEmployeeId, request.ManagerComment);
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return await GetByIdAsync(leaveRequest.Id, cancellationToken);
-    }
-
     public async Task<LeaveRequestDto?> RejectAsync(
         Guid id,
         ReviewLeaveRequestRequest request,

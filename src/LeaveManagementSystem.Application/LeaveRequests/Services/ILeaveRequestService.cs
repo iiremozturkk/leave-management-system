@@ -8,11 +8,6 @@ public interface ILeaveRequestService
         Guid id,
         CancellationToken cancellationToken = default);
 
-    Task<LeaveRequestDto?> ApproveAsync(
-        Guid id,
-        ReviewLeaveRequestRequest request,
-        CancellationToken cancellationToken = default);
-
     Task<LeaveRequestDto?> RejectAsync(
         Guid id,
         ReviewLeaveRequestRequest request,
