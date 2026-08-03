@@ -1,8 +1,9 @@
 ﻿namespace LeaveManagementSystem.IntegrationTests.Contracts;
 
-internal sealed record ValidationProblemDetailsResponse(
-    string Title,
-    int Status,
+public sealed record ValidationProblemDetailsResponse(
+    int? Status,
+    string? Title,
+    string? Detail,
     string? Instance,
-    Dictionary<string, string[]> Errors,
-    string TraceId);
+    string? TraceId,
+    Dictionary<string, string[]> Errors);
