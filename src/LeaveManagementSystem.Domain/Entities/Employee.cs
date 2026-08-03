@@ -19,5 +19,7 @@ public sealed class Employee : BaseEntity
     public EmployeeRole Role { get; set; } = EmployeeRole.Employee;
     public bool IsActive { get; set; } = true;
 
+    public UserAccount? UserAccount { get; private set; }
+
     public ICollection<LeaveRequest> LeaveRequests { get; set; } = new List<LeaveRequest>();
 }

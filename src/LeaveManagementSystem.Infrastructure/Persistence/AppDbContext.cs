@@ -18,6 +18,8 @@ public sealed class AppDbContext : DbContext
 
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
 
+    public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
