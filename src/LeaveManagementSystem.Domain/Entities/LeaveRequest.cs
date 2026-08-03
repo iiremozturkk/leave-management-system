@@ -45,40 +45,74 @@ public sealed class LeaveRequest : BaseEntity
         RequestedDays = endDate.DayNumber - startDate.DayNumber + 1;
     }
 
-    public void Approve(Guid reviewerEmployeeId, string? managerComment)
+    public void Approve(
+        Guid reviewerEmployeeId,
+        string? managerComment)
     {
         EnsurePending();
 
         if (reviewerEmployeeId == Guid.Empty)
         {
-            throw new InvalidOperationException("Reviewer employee id cannot be empty.");
+            throw new InvalidOperationException(
+                "Reviewer employee id cannot be empty.");
         }
 
-        var reviewedAtUtc = DateTime.UtcNow;
+        var normalizedManagerComment =
+            NormalizeOptionalComment(
+                managerComment);
 
-        Status = LeaveRequestStatus.Approved;
-        ManagerComment = NormalizeOptionalComment(managerComment);
-        ReviewedAtUtc = reviewedAtUtc;
-        ReviewedByEmployeeId = reviewerEmployeeId;
-        UpdatedAtUtc = reviewedAtUtc;
+        var reviewedAtUtc =
+            DateTime.UtcNow;
+
+        Status =
+            LeaveRequestStatus.Approved;
+
+        ManagerComment =
+            normalizedManagerComment;
+
+        ReviewedAtUtc =
+            reviewedAtUtc;
+
+        ReviewedByEmployeeId =
+            reviewerEmployeeId;
+
+        UpdatedAtUtc =
+            reviewedAtUtc;
     }
 
-    public void Reject(Guid reviewerEmployeeId, string? managerComment)
+    public void Reject(
+        Guid reviewerEmployeeId,
+        string? managerComment)
     {
         EnsurePending();
 
         if (reviewerEmployeeId == Guid.Empty)
         {
-            throw new InvalidOperationException("Reviewer employee id cannot be empty.");
+            throw new InvalidOperationException(
+                "Reviewer employee id cannot be empty.");
         }
 
-        var reviewedAtUtc = DateTime.UtcNow;
+        var normalizedManagerComment =
+            NormalizeOptionalComment(
+                managerComment);
 
-        Status = LeaveRequestStatus.Rejected;
-        ManagerComment = NormalizeOptionalComment(managerComment);
-        ReviewedAtUtc = reviewedAtUtc;
-        ReviewedByEmployeeId = reviewerEmployeeId;
-        UpdatedAtUtc = reviewedAtUtc;
+        var reviewedAtUtc =
+            DateTime.UtcNow;
+
+        Status =
+            LeaveRequestStatus.Rejected;
+
+        ManagerComment =
+            normalizedManagerComment;
+
+        ReviewedAtUtc =
+            reviewedAtUtc;
+
+        ReviewedByEmployeeId =
+            reviewerEmployeeId;
+
+        UpdatedAtUtc =
+            reviewedAtUtc;
     }
 
     public bool OverlapsWith(DateOnly startDate, DateOnly endDate)
