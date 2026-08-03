@@ -1,4 +1,5 @@
 ﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.LeaveRequests.Commands.ApproveLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.CreateLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.DeleteLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.UpdateLeaveRequest;
@@ -182,9 +183,11 @@ public sealed class LeaveRequestsController(
         try
         {
             var leaveRequest =
-                await leaveRequestService.ApproveAsync(
-                    id,
-                    request,
+                await sender.Send(
+                    new ApproveLeaveRequestCommand(
+                        id,
+                        request.ReviewerEmployeeId,
+                        request.ManagerComment),
                     cancellationToken);
 
             if (leaveRequest is null)
