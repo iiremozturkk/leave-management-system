@@ -10,6 +10,13 @@ using LeaveManagementSystem.IntegrationTests.Infrastructure;
 using LeaveManagementSystem.IntegrationTests.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using LeaveManagementSystem.Infrastructure.Authentication.Jwt;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using LeaveManagementSystem.Application.Authentication.Constants;
 
 namespace LeaveManagementSystem.IntegrationTests.Authentication;
 
@@ -168,6 +175,206 @@ public sealed class BearerAuthenticationEndpointTests(
                 employeeId,
                 departmentId);
         }
+    }
+
+    [Fact]
+    public async Task GetClaims_WithExpiredToken_ReturnsUnauthorized()
+    {
+        var nowUtc =
+            DateTime.UtcNow;
+
+        var token =
+            CreateTestToken(
+                issuedAtUtc: nowUtc.AddMinutes(-10),
+                notBeforeUtc: nowUtc.AddMinutes(-10),
+                expiresAtUtc: nowUtc.AddMinutes(-5));
+
+        await AssertTokenRejectedAsync(
+            token);
+    }
+
+    [Fact]
+    public async Task GetClaims_WithInvalidSigningKey_ReturnsUnauthorized()
+    {
+        var token =
+            CreateTestToken(
+                signingKey:
+                    "invalid-test-signing-key-that-is-long-enough-for-hmac-sha256");
+
+        await AssertTokenRejectedAsync(
+            token);
+    }
+
+    [Fact]
+    public async Task GetClaims_WithInvalidIssuer_ReturnsUnauthorized()
+    {
+        var token =
+            CreateTestToken(
+                issuer:
+                    "Invalid.IntegrationTests.Issuer");
+
+        await AssertTokenRejectedAsync(
+            token);
+    }
+
+    [Fact]
+    public async Task GetClaims_WithInvalidAudience_ReturnsUnauthorized()
+    {
+        var token =
+            CreateTestToken(
+                audience:
+                    "Invalid.IntegrationTests.Audience");
+
+        await AssertTokenRejectedAsync(
+            token);
+    }
+
+    [Fact]
+    public async Task GetClaims_WithUnsupportedAlgorithm_ReturnsUnauthorized()
+    {
+        var token =
+            CreateTestToken(
+                algorithm:
+                    SecurityAlgorithms.HmacSha512);
+
+        await AssertTokenRejectedAsync(
+            token);
+    }
+
+    private string CreateTestToken(
+        string? issuer = null,
+        string? audience = null,
+        string? signingKey = null,
+        string algorithm = SecurityAlgorithms.HmacSha256,
+        DateTime? issuedAtUtc = null,
+        DateTime? notBeforeUtc = null,
+        DateTime? expiresAtUtc = null)
+    {
+        using var scope =
+            _factory.Services.CreateScope();
+
+        var jwtOptions =
+            scope.ServiceProvider
+                .GetRequiredService<IOptions<JwtOptions>>()
+                .Value;
+
+        var nowUtc =
+            DateTime.UtcNow;
+
+        var actualIssuedAtUtc =
+            issuedAtUtc ?? nowUtc;
+
+        var actualNotBeforeUtc =
+            notBeforeUtc ?? nowUtc.AddMinutes(-1);
+
+        var actualExpiresAtUtc =
+            expiresAtUtc ?? nowUtc.AddMinutes(5);
+
+        var userAccountId =
+            Guid.NewGuid();
+
+        var employeeId =
+            Guid.NewGuid();
+
+        var claims =
+            new[]
+            {
+                new Claim(
+                    JwtRegisteredClaimNames.Sub,
+                    userAccountId.ToString("D")),
+
+                new Claim(
+                    JwtRegisteredClaimNames.Jti,
+                    Guid.NewGuid().ToString("D")),
+
+                new Claim(
+                    JwtRegisteredClaimNames.Email,
+                   "jwt.validation@example.com"),
+
+                new Claim(
+                    JwtClaimNames.EmployeeId,
+                    employeeId.ToString("D")),
+
+                new Claim(
+                    JwtClaimNames.Role,
+                    EmployeeRole.Employee.ToString())
+            };
+
+        var securityKey =
+            new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(
+                    signingKey ??
+                    jwtOptions.SigningKey));
+
+        var tokenDescriptor =
+            new SecurityTokenDescriptor
+            {
+                Issuer =
+                    issuer ??
+                    jwtOptions.Issuer,
+
+                Audience =
+                    audience ??
+                    jwtOptions.Audience,
+
+                Subject =
+                    new ClaimsIdentity(
+                        claims),
+
+                IssuedAt =
+                    actualIssuedAtUtc,
+
+                NotBefore =
+                    actualNotBeforeUtc,
+
+                Expires =
+                    actualExpiresAtUtc,
+
+                SigningCredentials =
+                    new SigningCredentials(
+                        securityKey,
+                        algorithm)
+            };
+
+        var tokenHandler =
+            new JwtSecurityTokenHandler();
+
+        var securityToken =
+            tokenHandler.CreateToken(
+                tokenDescriptor);
+
+        return tokenHandler.WriteToken(
+            securityToken);
+    }
+
+    private async Task AssertTokenRejectedAsync(
+            string token)
+    {
+        using var request =
+            new HttpRequestMessage(
+                HttpMethod.Get,
+                "/api/test-authentication/claims");
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                token);
+
+        using var response =
+            await _client.SendAsync(
+                request);
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode);
+
+        Assert.Contains(
+            response.Headers.WwwAuthenticate,
+            header =>
+                string.Equals(
+                    header.Scheme,
+                    "Bearer",
+                    StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task<TestUserData> CreateUserAccountAsync(
