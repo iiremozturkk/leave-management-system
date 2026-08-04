@@ -1,4 +1,6 @@
 ﻿using FluentValidation;
+using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Authentication.Services;
 using LeaveManagementSystem.Application.Common.Behaviors;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +21,10 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(applicationAssembly);
+
+        services.AddScoped<
+            ICurrentUserAccessService,
+            CurrentUserAccessService>();
 
         return services;
     }

@@ -54,6 +54,10 @@ public static class DependencyInjection
             PasswordHashService>();
 
         services.AddScoped<
+            ICurrentUserAccessReadRepository,
+            CurrentUserAccessReadRepository>();
+
+        services.AddScoped<
             IUserAccountReadRepository,
             UserAccountReadRepository>();
 
