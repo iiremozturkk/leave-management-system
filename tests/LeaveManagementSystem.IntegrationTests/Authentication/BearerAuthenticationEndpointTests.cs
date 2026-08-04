@@ -1,22 +1,22 @@
-﻿using System.Net;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text;
 using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Authentication.Constants;
 using LeaveManagementSystem.Domain.Entities;
 using LeaveManagementSystem.Domain.Enums;
+using LeaveManagementSystem.Infrastructure.Authentication.Jwt;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using LeaveManagementSystem.IntegrationTests.Contracts;
 using LeaveManagementSystem.IntegrationTests.Infrastructure;
 using LeaveManagementSystem.IntegrationTests.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using LeaveManagementSystem.Infrastructure.Authentication.Jwt;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using LeaveManagementSystem.Application.Authentication.Constants;
+using Xunit;
 
 namespace LeaveManagementSystem.IntegrationTests.Authentication;
 
@@ -24,6 +24,87 @@ public sealed class BearerAuthenticationEndpointTests(
     TestWebApplicationFactory factory)
     : IntegrationTestBase(factory)
 {
+    private static readonly string[] RequiredClaimTypeValues =
+{
+    JwtRegisteredClaimNames.Sub,
+    JwtRegisteredClaimNames.Jti,
+    JwtRegisteredClaimNames.Email,
+    JwtClaimNames.EmployeeId,
+    JwtClaimNames.Role
+};
+
+    public static IEnumerable<object[]> RequiredClaimTypes
+    {
+        get
+        {
+            foreach (var claimType in RequiredClaimTypeValues)
+            {
+                yield return
+                    new object[]
+                    {
+                    claimType
+                    };
+            }
+        }
+    }
+
+    public static IEnumerable<object[]> InvalidRequiredClaimValues
+    {
+        get
+        {
+            foreach (var claimType in RequiredClaimTypeValues)
+            {
+                yield return
+                    new object[]
+                    {
+                    claimType,
+                    string.Empty
+                    };
+
+                yield return
+                    new object[]
+                    {
+                    claimType,
+                    "   "
+                    };
+            }
+        }
+    }
+
+    public static IEnumerable<object[]> InvalidGuidClaims
+    {
+        get
+        {
+            var claimTypes =
+                new[]
+                {
+                JwtRegisteredClaimNames.Sub,
+                JwtRegisteredClaimNames.Jti,
+                JwtClaimNames.EmployeeId
+                };
+
+            var invalidValues =
+                new[]
+                {
+                "not-a-guid",
+                Guid.Empty.ToString("D")
+                };
+
+            foreach (var claimType in claimTypes)
+            {
+                foreach (var invalidValue in invalidValues)
+                {
+                    yield return
+                        new object[]
+                        {
+                        claimType,
+                        invalidValue
+                        };
+                }
+            }
+        }
+    }
+
     [Fact]
     public async Task GetClaims_WithoutToken_ReturnsUnauthorized()
     {
@@ -72,6 +153,120 @@ public sealed class BearerAuthenticationEndpointTests(
                     header.Scheme,
                     "Bearer",
                     StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [MemberData(nameof(RequiredClaimTypes))]
+    public async Task GetClaims_WithMissingRequiredClaim_ReturnsUnauthorized(
+        string claimType)
+    {
+        var claims =
+            CreateValidClaims();
+
+        claims.RemoveAll(
+            claim =>
+                claim.Type == claimType);
+
+        var token =
+            CreateTestToken(
+                claims: claims);
+
+        await AssertTokenRejectedAsync(
+            token);
+    }
+
+    [Theory]
+    [MemberData(nameof(RequiredClaimTypes))]
+    public async Task GetClaims_WithDuplicateRequiredClaim_ReturnsUnauthorized(
+        string claimType)
+    {
+        var claims =
+            CreateValidClaims();
+
+        var existingClaim =
+            Assert.Single(
+                claims,
+                claim =>
+                    claim.Type == claimType);
+
+        claims.Add(
+            new Claim(
+                existingClaim.Type,
+                existingClaim.Value));
+
+        var token =
+            CreateTestToken(
+                claims: claims);
+
+        await AssertTokenRejectedAsync(
+            token);
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidRequiredClaimValues))]
+    public async Task GetClaims_WithEmptyOrWhitespaceRequiredClaim_ReturnsUnauthorized(
+    string claimType,
+    string claimValue)
+    {
+        var claims =
+            CreateValidClaims();
+
+        ReplaceClaim(
+            claims,
+            claimType,
+            claimValue);
+
+        var token =
+            CreateTestToken(
+                claims: claims);
+
+        await AssertTokenRejectedAsync(
+            token);
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidGuidClaims))]
+    public async Task GetClaims_WithInvalidGuidRequiredClaim_ReturnsUnauthorized(
+        string claimType,
+        string claimValue)
+    {
+        var claims =
+            CreateValidClaims();
+
+        ReplaceClaim(
+            claims,
+            claimType,
+            claimValue);
+
+        var token =
+            CreateTestToken(
+                claims: claims);
+
+        await AssertTokenRejectedAsync(
+            token);
+    }
+
+    [Theory]
+    [InlineData("manager")]
+    [InlineData("3")]
+    [InlineData("NotARole")]
+    public async Task GetClaims_WithInvalidRoleRequiredClaim_ReturnsUnauthorized(
+        string claimValue)
+    {
+        var claims =
+            CreateValidClaims();
+
+        ReplaceClaim(
+            claims,
+            JwtClaimNames.Role,
+            claimValue);
+
+        var token =
+            CreateTestToken(
+                claims: claims);
+
+        await AssertTokenRejectedAsync(
+            token);
     }
 
     [Fact]
@@ -248,7 +443,8 @@ public sealed class BearerAuthenticationEndpointTests(
         string algorithm = SecurityAlgorithms.HmacSha256,
         DateTime? issuedAtUtc = null,
         DateTime? notBeforeUtc = null,
-        DateTime? expiresAtUtc = null)
+        DateTime? expiresAtUtc = null,
+        IEnumerable<Claim>? claims = null)
     {
         using var scope =
             _factory.Services.CreateScope();
@@ -270,35 +466,9 @@ public sealed class BearerAuthenticationEndpointTests(
         var actualExpiresAtUtc =
             expiresAtUtc ?? nowUtc.AddMinutes(5);
 
-        var userAccountId =
-            Guid.NewGuid();
-
-        var employeeId =
-            Guid.NewGuid();
-
-        var claims =
-            new[]
-            {
-                new Claim(
-                    JwtRegisteredClaimNames.Sub,
-                    userAccountId.ToString("D")),
-
-                new Claim(
-                    JwtRegisteredClaimNames.Jti,
-                    Guid.NewGuid().ToString("D")),
-
-                new Claim(
-                    JwtRegisteredClaimNames.Email,
-                   "jwt.validation@example.com"),
-
-                new Claim(
-                    JwtClaimNames.EmployeeId,
-                    employeeId.ToString("D")),
-
-                new Claim(
-                    JwtClaimNames.Role,
-                    EmployeeRole.Employee.ToString())
-            };
+        var actualClaims =
+            claims?.ToArray()
+            ?? CreateValidClaims().ToArray();
 
         var securityKey =
             new SymmetricSecurityKey(
@@ -319,7 +489,7 @@ public sealed class BearerAuthenticationEndpointTests(
 
                 Subject =
                     new ClaimsIdentity(
-                        claims),
+                        actualClaims),
 
                 IssuedAt =
                     actualIssuedAtUtc,
@@ -347,8 +517,50 @@ public sealed class BearerAuthenticationEndpointTests(
             securityToken);
     }
 
+    private static List<Claim> CreateValidClaims()
+    {
+        return
+            new List<Claim>
+            {
+                new(
+                    JwtRegisteredClaimNames.Sub,
+                    Guid.NewGuid().ToString("D")),
+
+                new(
+                    JwtRegisteredClaimNames.Jti,
+                    Guid.NewGuid().ToString("D")),
+
+                new(
+                    JwtRegisteredClaimNames.Email,
+                    "jwt.validation@example.com"),
+
+                new(
+                    JwtClaimNames.EmployeeId,
+                    Guid.NewGuid().ToString("D")),
+
+                new(
+                    JwtClaimNames.Role,
+                    EmployeeRole.Employee.ToString())
+            };
+    }
+
+    private static void ReplaceClaim(
+        List<Claim> claims,
+        string claimType,
+        string replacementValue)
+    {
+        claims.RemoveAll(
+            claim =>
+                claim.Type == claimType);
+
+        claims.Add(
+            new Claim(
+                claimType,
+                replacementValue));
+    }
+
     private async Task AssertTokenRejectedAsync(
-            string token)
+        string token)
     {
         using var request =
             new HttpRequestMessage(
@@ -375,6 +587,23 @@ public sealed class BearerAuthenticationEndpointTests(
                     header.Scheme,
                     "Bearer",
                     StringComparison.OrdinalIgnoreCase));
+
+        var authenticateHeader =
+            string.Join(
+                ", ",
+                response.Headers.WwwAuthenticate
+                    .Select(header =>
+                        header.ToString()));
+
+        Assert.False(
+            authenticateHeader.Contains(
+                "error_description",
+                StringComparison.OrdinalIgnoreCase));
+
+        Assert.False(
+            authenticateHeader.Contains(
+                "The access token is invalid.",
+                StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task<TestUserData> CreateUserAccountAsync(

@@ -8,6 +8,7 @@ using LeaveManagementSystem.Application.Authentication.Constants;
 using LeaveManagementSystem.Infrastructure;
 using LeaveManagementSystem.Infrastructure.Authentication.Jwt;
 using LeaveManagementSystem.WebAPI.Common.ExceptionHandlers;
+using LeaveManagementSystem.WebAPI.Authentication.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -19,6 +20,9 @@ builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
+builder.Services.AddSingleton<RequiredJwtClaimsValidator>();
+builder.Services.AddScoped<RequiredJwtBearerEvents>();
 
 builder.Services.AddSwaggerGen(options =>
 {
@@ -54,6 +58,12 @@ builder.Services
         {
             var jwtOptions =
                 jwtOptionsAccessor.Value;
+
+            bearerOptions.IncludeErrorDetails =
+                false;
+
+            bearerOptions.EventsType =
+                typeof(RequiredJwtBearerEvents);
 
             bearerOptions.MapInboundClaims =
                 false;
