@@ -1,4 +1,6 @@
-﻿using Microsoft.OpenApi;
+﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.WebAPI.Authentication.CurrentUser;
+using Microsoft.OpenApi;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using LeaveManagementSystem.Application;
@@ -14,6 +16,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition(
