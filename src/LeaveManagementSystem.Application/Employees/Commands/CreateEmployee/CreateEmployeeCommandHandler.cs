@@ -1,12 +1,15 @@
-﻿using LeaveManagementSystem.Application.Common.Exceptions;
+﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Domain.Entities;
+using LeaveManagementSystem.Domain.Enums;
 using MediatR;
 
 namespace LeaveManagementSystem.Application.Employees.Commands.CreateEmployee;
 
 public sealed class CreateEmployeeCommandHandler(
+    ICurrentUserAccessService currentUserAccessService,
     IEmployeeWriteRepository employeeWriteRepository,
     IEmployeeReadRepository employeeReadRepository)
     : IRequestHandler<CreateEmployeeCommand, EmployeeDto>
@@ -15,6 +18,19 @@ public sealed class CreateEmployeeCommandHandler(
         CreateEmployeeCommand request,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var currentUserAccess =
+            await currentUserAccessService.GetAsync(
+                cancellationToken);
+
+        if (currentUserAccess is null
+            || currentUserAccess.Role != EmployeeRole.HR)
+        {
+            throw new ForbiddenOperationException(
+                "Only current active HR employees can administer employees.");
+        }
+
         var firstName = request.FirstName.Trim();
         var lastName = request.LastName.Trim();
         var email = request.Email

@@ -12,7 +12,7 @@ namespace LeaveManagementSystem.IntegrationTests.Employees;
 
 public sealed class CreateEmployeeEndpointTests(
     TestWebApplicationFactory factory)
-    : IntegrationTestBase(factory)
+    : HrIntegrationTestBase(factory)
 {
     [Fact]
     public async Task CreateEmployee_InvalidEmail_ReturnsValidationProblemDetails()
@@ -28,7 +28,7 @@ public sealed class CreateEmployeeEndpointTests(
         };
 
         using var response =
-            await _client.PostAsJsonAsync(
+            await HrClient.PostAsJsonAsync(
                 "/api/employees",
                 request);
 
@@ -96,7 +96,7 @@ public sealed class CreateEmployeeEndpointTests(
         };
 
         using var response =
-            await _client.PostAsJsonAsync(
+            await HrClient.PostAsJsonAsync(
                 "/api/employees",
                 request);
 
@@ -147,7 +147,7 @@ public sealed class CreateEmployeeEndpointTests(
             };
 
             using var response =
-                await _client.PostAsJsonAsync(
+                await HrClient.PostAsJsonAsync(
                     "/api/employees",
                     request);
 
@@ -223,7 +223,7 @@ public sealed class CreateEmployeeEndpointTests(
             };
 
             using var response =
-                await _client.PostAsJsonAsync(
+                await HrClient.PostAsJsonAsync(
                     "/api/employees",
                     request);
 
@@ -302,7 +302,7 @@ public sealed class CreateEmployeeEndpointTests(
             };
 
             using var firstResponse =
-                await _client.PostAsJsonAsync(
+                await HrClient.PostAsJsonAsync(
                     "/api/employees",
                     firstRequest);
 
@@ -332,7 +332,7 @@ public sealed class CreateEmployeeEndpointTests(
             };
 
             using var duplicateResponse =
-                await _client.PostAsJsonAsync(
+                await HrClient.PostAsJsonAsync(
                     "/api/employees",
                     duplicateRequest);
 

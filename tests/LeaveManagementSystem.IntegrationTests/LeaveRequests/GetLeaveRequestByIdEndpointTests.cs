@@ -9,7 +9,7 @@ namespace LeaveManagementSystem.IntegrationTests.LeaveRequests;
 
 public sealed class GetLeaveRequestByIdEndpointTests(
     TestWebApplicationFactory factory)
-    : IntegrationTestBase(factory)
+    : HrIntegrationTestBase(factory)
 {
     [Fact]
     public async Task GetLeaveRequestById_LeaveRequestExists_ReturnsProjectedLeaveRequest()

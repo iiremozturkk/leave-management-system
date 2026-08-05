@@ -11,7 +11,7 @@ namespace LeaveManagementSystem.IntegrationTests.LeaveRequests;
 
 public sealed class GetLeaveBalanceEndpointTests(
     TestWebApplicationFactory factory)
-    : IntegrationTestBase(factory)
+    : HrIntegrationTestBase(factory)
 {
     [Fact]
     public async Task GetBalance_ValidEmployeeAndLeaveType_ReturnsCurrentBalance()

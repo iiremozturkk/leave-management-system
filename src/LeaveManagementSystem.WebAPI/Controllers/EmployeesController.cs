@@ -4,7 +4,9 @@ using LeaveManagementSystem.Application.Employees.Commands.UpdateEmployee;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Application.Employees.Queries.GetEmployeeById;
 using LeaveManagementSystem.Application.Employees.Queries.GetEmployees;
+using LeaveManagementSystem.WebAPI.Authorization.Policies;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,6 +14,7 @@ namespace LeaveManagementSystem.WebAPI.Controllers;
 
 [ApiController]
 [Route("api/employees")]
+[Authorize(Policy = AuthorizationPolicyNames.HrOnly)]
 public sealed class EmployeesController(
     ISender sender)
     : ControllerBase

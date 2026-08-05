@@ -9,7 +9,7 @@ namespace LeaveManagementSystem.IntegrationTests.LeaveRequests;
 
 public sealed class LeaveRequestCrudEndpointTests(
     TestWebApplicationFactory factory)
-    : IntegrationTestBase(factory)
+    : HrIntegrationTestBase(factory)
 {
     [Fact]
     public async Task LeaveRequestCrudFlow_WorksThroughApi()

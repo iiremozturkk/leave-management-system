@@ -25,6 +25,9 @@ public abstract class IntegrationTestBase
     protected readonly TestWebApplicationFactory _factory;
     protected readonly HttpClient _client;
 
+    protected virtual HttpClient EmployeeApiClient =>
+        _client;
+
     protected IntegrationTestBase(
         TestWebApplicationFactory factory)
     {
@@ -105,7 +108,7 @@ public abstract class IntegrationTestBase
         };
 
         var createResponse =
-            await _client.PostAsJsonAsync(
+            await EmployeeApiClient.PostAsJsonAsync(
                 "/api/employees",
                 createRequest);
 

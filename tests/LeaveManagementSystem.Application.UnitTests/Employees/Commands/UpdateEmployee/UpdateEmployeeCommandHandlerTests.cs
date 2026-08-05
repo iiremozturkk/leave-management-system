@@ -1,4 +1,6 @@
-﻿using LeaveManagementSystem.Application.Common.Exceptions;
+﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Authentication.Models;
+using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.Employees.Commands.UpdateEmployee;
 using LeaveManagementSystem.Application.Employees.Dtos;
@@ -41,7 +43,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
                         isActive: false)
             };
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -170,7 +172,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
         var readRepository =
             new FakeEmployeeReadRepository();
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -225,7 +227,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
         var readRepository =
             new FakeEmployeeReadRepository();
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -283,7 +285,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
         var readRepository =
             new FakeEmployeeReadRepository();
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -340,7 +342,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
         var readRepository =
             new FakeEmployeeReadRepository();
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -417,7 +419,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
             new FakeEmployeeReadRepository();
 
         var handler =
-            new UpdateEmployeeCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -487,7 +489,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
             new FakeEmployeeReadRepository();
 
         var handler =
-            new UpdateEmployeeCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -568,7 +570,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
             new FakeEmployeeReadRepository();
 
         var handler =
-            new UpdateEmployeeCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -650,7 +652,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
                         managerId: null)
             };
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -709,7 +711,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
                         managerId: null)
             };
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -763,7 +765,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
         var readRepository =
             new FakeEmployeeReadRepository();
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -831,7 +833,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
                         managerId: null)
             };
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -880,7 +882,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
         var readRepository =
             new FakeEmployeeReadRepository();
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             readRepository);
 
@@ -914,6 +916,9 @@ public sealed class UpdateEmployeeCommandHandlerTests
     [Fact]
     public async Task Handle_ForwardsCancellationTokenToAllRepositoryCalls()
     {
+        var currentUserAccessService =
+            CreateHrCurrentUserAccessService();
+
         var employeeId = Guid.NewGuid();
         var departmentId = Guid.NewGuid();
         var managerId = Guid.NewGuid();
@@ -935,9 +940,10 @@ public sealed class UpdateEmployeeCommandHandlerTests
                         managerId)
             };
 
-        var handler = new UpdateEmployeeCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
-            readRepository);
+            readRepository,
+            currentUserAccessService);
 
         var command = CreateValidCommand(
             employeeId,
@@ -953,6 +959,10 @@ public sealed class UpdateEmployeeCommandHandlerTests
         await handler.Handle(
             command,
             cancellationToken);
+
+        Assert.Equal(
+            cancellationToken,
+            currentUserAccessService.RequestedCancellationToken);
 
         Assert.Equal(
             cancellationToken,
@@ -981,6 +991,237 @@ public sealed class UpdateEmployeeCommandHandlerTests
         Assert.Equal(
             cancellationToken,
             readRepository.GetByIdCancellationToken);
+    }
+
+    [Fact]
+    public async Task Handle_NullCommand_ThrowsBeforeDependencyCalls()
+    {
+        var currentUserAccessService =
+            CreateHrCurrentUserAccessService();
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository();
+
+        var readRepository =
+            new FakeEmployeeReadRepository();
+
+        var handler = CreateHandler(
+            writeRepository,
+            readRepository,
+            currentUserAccessService);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => handler.Handle(
+                null!,
+                CancellationToken.None));
+
+        Assert.Equal(
+            0,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetForUpdateCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.DepartmentExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.ActiveManagerExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetManagerIdCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.EmailExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            readRepository.GetByIdCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_CurrentUserAccessMissing_ThrowsForbiddenBeforeRepositoryCalls()
+    {
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService
+            {
+                Result = null
+            };
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository();
+
+        var readRepository =
+            new FakeEmployeeReadRepository();
+
+        var handler = CreateHandler(
+            writeRepository,
+            readRepository,
+            currentUserAccessService);
+
+        var exception =
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
+                () => handler.Handle(
+                    CreateValidCommand(
+                        Guid.NewGuid(),
+                        Guid.NewGuid()),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "Only current active HR employees can administer employees.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetForUpdateCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.DepartmentExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.ActiveManagerExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetManagerIdCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.EmailExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            readRepository.GetByIdCallCount);
+    }
+
+    [Theory]
+    [InlineData(EmployeeRole.Employee)]
+    [InlineData(EmployeeRole.Manager)]
+    public async Task Handle_CurrentUserIsNotHr_ThrowsForbiddenBeforeRepositoryCalls(
+        EmployeeRole role)
+    {
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                role);
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository();
+
+        var readRepository =
+            new FakeEmployeeReadRepository();
+
+        var handler = CreateHandler(
+            writeRepository,
+            readRepository,
+            currentUserAccessService);
+
+        var exception =
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
+                () => handler.Handle(
+                    CreateValidCommand(
+                        Guid.NewGuid(),
+                        Guid.NewGuid()),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "Only current active HR employees can administer employees.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetForUpdateCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.DepartmentExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.ActiveManagerExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetManagerIdCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.EmailExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            readRepository.GetByIdCallCount);
+    }
+
+    private static UpdateEmployeeCommandHandler CreateHandler(
+        FakeEmployeeWriteRepository writeRepository,
+        FakeEmployeeReadRepository readRepository,
+        FakeCurrentUserAccessService? currentUserAccessService = null)
+    {
+        return new UpdateEmployeeCommandHandler(
+            currentUserAccessService
+                ?? CreateHrCurrentUserAccessService(),
+            writeRepository,
+            readRepository);
+    }
+
+    private static FakeCurrentUserAccessService
+        CreateHrCurrentUserAccessService()
+    {
+        return CreateCurrentUserAccessService(
+            EmployeeRole.HR);
+    }
+
+    private static FakeCurrentUserAccessService
+        CreateCurrentUserAccessService(
+            EmployeeRole role)
+    {
+        return new FakeCurrentUserAccessService
+        {
+            Result = new CurrentUserAccess(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "current.user@example.com",
+                role)
+        };
     }
 
     private static UpdateEmployeeCommand CreateValidCommand(
@@ -1042,6 +1283,31 @@ public sealed class UpdateEmployeeCommandHandlerTests
                 : null,
             DateTime.UtcNow.AddDays(-1),
             DateTime.UtcNow);
+    }
+
+    private sealed class FakeCurrentUserAccessService
+        : ICurrentUserAccessService
+    {
+        public CurrentUserAccess? Result { get; init; }
+
+        public int CallCount { get; private set; }
+
+        public CancellationToken RequestedCancellationToken
+        {
+            get;
+            private set;
+        }
+
+        public Task<CurrentUserAccess?> GetAsync(
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            RequestedCancellationToken =
+                cancellationToken;
+
+            return Task.FromResult(
+                Result);
+        }
     }
 
     private sealed class FakeEmployeeWriteRepository

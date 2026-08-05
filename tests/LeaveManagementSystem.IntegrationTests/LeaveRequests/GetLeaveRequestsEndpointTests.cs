@@ -13,7 +13,7 @@ namespace LeaveManagementSystem.IntegrationTests.LeaveRequests;
 
 public sealed class GetLeaveRequestsEndpointTests(
     TestWebApplicationFactory factory)
-    : IntegrationTestBase(factory)
+    : HrIntegrationTestBase(factory)
 {
     [Fact]
     public async Task GetLeaveRequests_ReturnsProjectedRequestsOrderedByCreatedAtDescending()

@@ -9,7 +9,7 @@ namespace LeaveManagementSystem.IntegrationTests.Employees;
 
 public sealed class EmployeeCrudEndpointTests(
     TestWebApplicationFactory factory)
-    : IntegrationTestBase(factory)
+    : HrIntegrationTestBase(factory)
 {
     [Fact]
     public async Task EmployeeCrudFlow_WorksThroughApi()
@@ -24,7 +24,7 @@ public sealed class EmployeeCrudEndpointTests(
         try
         {
             var listBeforeCreateResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     "/api/employees");
 
             Assert.Equal(
@@ -48,7 +48,7 @@ public sealed class EmployeeCrudEndpointTests(
             };
 
             var createResponse =
-                await _client.PostAsJsonAsync(
+                await HrClient.PostAsJsonAsync(
                     "/api/employees",
                     createRequest);
 
@@ -106,7 +106,7 @@ public sealed class EmployeeCrudEndpointTests(
                 createdEmployee.IsActive);
 
             var getByIdResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -126,7 +126,7 @@ public sealed class EmployeeCrudEndpointTests(
                 loadedEmployee!.Id);
 
             var listAfterCreateResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     "/api/employees");
 
             Assert.Equal(
@@ -161,7 +161,7 @@ public sealed class EmployeeCrudEndpointTests(
             };
 
             var updateResponse =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/employees/{employeeId}",
                     updateRequest);
 
@@ -204,7 +204,7 @@ public sealed class EmployeeCrudEndpointTests(
                 updatedEmployee.IsActive);
 
             var getUpdatedEmployeeResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -250,7 +250,7 @@ public sealed class EmployeeCrudEndpointTests(
                 persistedEmployee.IsActive);
 
             var deleteResponse =
-                await _client.DeleteAsync(
+                await HrClient.DeleteAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(

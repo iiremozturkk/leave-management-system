@@ -1,5 +1,6 @@
 ﻿using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.Employees.Abstractions;
+using LeaveManagementSystem.Application.Authentication.Abstractions;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Domain.Enums;
 using MediatR;
@@ -7,6 +8,7 @@ using MediatR;
 namespace LeaveManagementSystem.Application.Employees.Commands.UpdateEmployee;
 
 public sealed class UpdateEmployeeCommandHandler(
+    ICurrentUserAccessService currentUserAccessService,
     IEmployeeWriteRepository employeeWriteRepository,
     IEmployeeReadRepository employeeReadRepository)
     : IRequestHandler<UpdateEmployeeCommand, EmployeeDto?>
@@ -15,8 +17,21 @@ public sealed class UpdateEmployeeCommandHandler(
         UpdateEmployeeCommand request,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var currentUserAccess =
+            await currentUserAccessService.GetAsync(
+                cancellationToken);
+
+        if (currentUserAccess is null
+            || currentUserAccess.Role != EmployeeRole.HR)
+        {
+            throw new ForbiddenOperationException(
+                "Only current active HR employees can administer employees.");
+        }
+
         var employee =
-            await employeeWriteRepository.GetForUpdateAsync(
+                await employeeWriteRepository.GetForUpdateAsync(
                 request.Id,
                 cancellationToken);
 

@@ -12,7 +12,7 @@ namespace LeaveManagementSystem.IntegrationTests.LeaveRequests;
 
 public sealed class CreateLeaveRequestEndpointTests(
     TestWebApplicationFactory factory)
-    : IntegrationTestBase(factory)
+    : HrIntegrationTestBase(factory)
 {
     [Fact]
     public async Task Create_ValidRequest_ReturnsCreatedWithLocationAndPersistsSingleTrimmedRequest()

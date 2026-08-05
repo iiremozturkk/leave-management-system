@@ -30,6 +30,9 @@ public sealed class AuthorizationPolicyEndpointTests(
     private const string ManagerOnlyPath =
         "/api/test-authentication/manager-only";
 
+    private const string EmployeeCollectionPath =
+        "/api/employees";
+
     [Fact]
     public async Task GetAuthenticatedEmployee_WithoutToken_ReturnsUnauthorized()
     {
@@ -165,6 +168,113 @@ public sealed class AuthorizationPolicyEndpointTests(
 
             Assert.Equal(
                 HttpStatusCode.NoContent,
+                response.StatusCode);
+        }
+        finally
+        {
+            await CleanupAsync(
+                leaveRequestId: null,
+                employeeId,
+                departmentId);
+        }
+    }
+
+    [Fact]
+    public async Task GetEmployees_WithoutToken_ReturnsUnauthorized()
+    {
+        using var response =
+            await _client.GetAsync(
+                EmployeeCollectionPath);
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode);
+
+        Assert.Contains(
+            response.Headers.WwwAuthenticate,
+            header =>
+                string.Equals(
+                    header.Scheme,
+                    "Bearer",
+                    StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData(EmployeeRole.Employee)]
+    [InlineData(EmployeeRole.Manager)]
+    public async Task GetEmployees_WithNonHrToken_ReturnsSafeForbiddenProblemDetails(
+        EmployeeRole role)
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var departmentId =
+            await CreateDepartmentAsync();
+
+        Guid? employeeId = null;
+
+        try
+        {
+            var testUser =
+                await CreateUserAccountAsync(
+                    departmentId,
+                    role);
+
+            employeeId =
+                testUser.EmployeeId;
+
+            var accessToken =
+                await LoginAsync(
+                    testUser);
+
+            using var response =
+                await SendAuthorizedGetAsync(
+                    EmployeeCollectionPath,
+                    accessToken);
+
+            await AssertForbiddenProblemDetailsAsync(
+                response,
+                EmployeeCollectionPath);
+        }
+        finally
+        {
+            await CleanupAsync(
+                leaveRequestId: null,
+                employeeId,
+                departmentId);
+        }
+    }
+
+    [Fact]
+    public async Task GetEmployees_WithValidHrToken_ReturnsOk()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var departmentId =
+            await CreateDepartmentAsync();
+
+        Guid? employeeId = null;
+
+        try
+        {
+            var testUser =
+                await CreateUserAccountAsync(
+                    departmentId,
+                    EmployeeRole.HR);
+
+            employeeId =
+                testUser.EmployeeId;
+
+            var accessToken =
+                await LoginAsync(
+                    testUser);
+
+            using var response =
+                await SendAuthorizedGetAsync(
+                    EmployeeCollectionPath,
+                    accessToken);
+
+            Assert.Equal(
+                HttpStatusCode.OK,
                 response.StatusCode);
         }
         finally

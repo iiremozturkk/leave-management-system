@@ -12,7 +12,7 @@ namespace LeaveManagementSystem.IntegrationTests.Employees;
 
 public sealed class UpdateEmployeeEndpointTests(
     TestWebApplicationFactory factory)
-    : IntegrationTestBase(factory)
+    : HrIntegrationTestBase(factory)
 {
     [Fact]
     public async Task UpdateEmployee_InvalidEmail_ReturnsValidationProblemDetails()
@@ -31,7 +31,7 @@ public sealed class UpdateEmployeeEndpointTests(
         };
 
         using var response =
-            await _client.PutAsJsonAsync(
+            await HrClient.PutAsJsonAsync(
                 $"/api/employees/{employeeId}",
                 request);
 
@@ -100,7 +100,7 @@ public sealed class UpdateEmployeeEndpointTests(
         };
 
         using var response =
-            await _client.PutAsJsonAsync(
+            await HrClient.PutAsJsonAsync(
                 $"/api/employees/{employeeId}",
                 request);
 
@@ -126,7 +126,7 @@ public sealed class UpdateEmployeeEndpointTests(
                     departmentId);
 
             using var getBeforeResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -154,7 +154,7 @@ public sealed class UpdateEmployeeEndpointTests(
             };
 
             using var response =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/employees/{employeeId}",
                     request);
 
@@ -180,7 +180,7 @@ public sealed class UpdateEmployeeEndpointTests(
                 $"/api/employees/{employeeId}");
 
             using var getAfterResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -225,7 +225,7 @@ public sealed class UpdateEmployeeEndpointTests(
                     departmentId);
 
             using var getBeforeResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -253,7 +253,7 @@ public sealed class UpdateEmployeeEndpointTests(
             };
 
             using var response =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/employees/{employeeId}",
                     request);
 
@@ -279,7 +279,7 @@ public sealed class UpdateEmployeeEndpointTests(
                 $"/api/employees/{employeeId}");
 
             using var getAfterResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -324,7 +324,7 @@ public sealed class UpdateEmployeeEndpointTests(
                     departmentId);
 
             using var getBeforeResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -352,7 +352,7 @@ public sealed class UpdateEmployeeEndpointTests(
             };
 
             using var response =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/employees/{employeeId}",
                     request);
 
@@ -378,7 +378,7 @@ public sealed class UpdateEmployeeEndpointTests(
                 $"/api/employees/{employeeId}");
 
             using var getAfterResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -424,7 +424,7 @@ public sealed class UpdateEmployeeEndpointTests(
                     departmentId);
 
             using var getBeforeResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{targetEmployeeId}");
 
             Assert.Equal(
@@ -453,7 +453,7 @@ public sealed class UpdateEmployeeEndpointTests(
             };
 
             using var createExistingEmployeeResponse =
-                await _client.PostAsJsonAsync(
+                await HrClient.PostAsJsonAsync(
                     "/api/employees",
                     createExistingEmployeeRequest);
 
@@ -484,7 +484,7 @@ public sealed class UpdateEmployeeEndpointTests(
             };
 
             using var updateResponse =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/employees/{targetEmployeeId}",
                     updateRequest);
 
@@ -510,7 +510,7 @@ public sealed class UpdateEmployeeEndpointTests(
                 $"/api/employees/{targetEmployeeId}");
 
             using var getAfterResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{targetEmployeeId}");
 
             Assert.Equal(
@@ -560,7 +560,7 @@ public sealed class UpdateEmployeeEndpointTests(
                     departmentId);
 
             using var getBeforeResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -588,7 +588,7 @@ public sealed class UpdateEmployeeEndpointTests(
             };
 
             using var updateResponse =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/employees/{employeeId}",
                     updateRequest);
 
@@ -635,7 +635,7 @@ public sealed class UpdateEmployeeEndpointTests(
                 updatedEmployee.IsActive);
 
             using var getAfterResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -727,7 +727,7 @@ public sealed class UpdateEmployeeEndpointTests(
             };
 
             using var assignManagerResponse =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/employees/{employeeId}",
                     assignManagerRequest);
 
@@ -767,7 +767,7 @@ public sealed class UpdateEmployeeEndpointTests(
                 employeeWithManager.IsActive);
 
             using var getAssignedEmployeeResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -817,7 +817,7 @@ public sealed class UpdateEmployeeEndpointTests(
             };
 
             using var removeManagerResponse =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/employees/{employeeId}",
                     removeManagerRequest);
 
@@ -856,7 +856,7 @@ public sealed class UpdateEmployeeEndpointTests(
                 employeeWithoutManager.IsActive);
 
             using var getRemovedManagerResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -932,7 +932,7 @@ public sealed class UpdateEmployeeEndpointTests(
                     departmentId);
 
             using var getBeforeResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(
@@ -948,7 +948,7 @@ public sealed class UpdateEmployeeEndpointTests(
                 employeeBeforeUpdate);
 
             using var deleteManagerResponse =
-                await _client.DeleteAsync(
+                await HrClient.DeleteAsync(
                     $"/api/employees/{managerId}");
 
             Assert.Equal(
@@ -993,7 +993,7 @@ public sealed class UpdateEmployeeEndpointTests(
             };
 
             using var updateResponse =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/employees/{employeeId}",
                     updateRequest);
 
@@ -1020,7 +1020,7 @@ public sealed class UpdateEmployeeEndpointTests(
                 $"/api/employees/{employeeId}");
 
             using var getAfterResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{employeeId}");
 
             Assert.Equal(

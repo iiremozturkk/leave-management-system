@@ -11,7 +11,7 @@ namespace LeaveManagementSystem.IntegrationTests.Employees;
 
 public sealed class DeleteEmployeeEndpointTests(
     TestWebApplicationFactory factory)
-    : IntegrationTestBase(factory)
+    : HrIntegrationTestBase(factory)
 {
     [Fact]
     public async Task DeleteEmployee_EmployeeDoesNotExist_ReturnsNotFound()
@@ -22,7 +22,7 @@ public sealed class DeleteEmployeeEndpointTests(
             Guid.NewGuid();
 
         using var response =
-            await _client.DeleteAsync(
+            await HrClient.DeleteAsync(
                 $"/api/employees/{employeeId}");
 
         Assert.Equal(
@@ -50,7 +50,7 @@ public sealed class DeleteEmployeeEndpointTests(
                 createdEmployeeId;
 
             using var deleteResponse =
-                await _client.DeleteAsync(
+                await HrClient.DeleteAsync(
                     $"/api/employees/{createdEmployeeId}");
 
             Assert.Equal(
@@ -58,7 +58,7 @@ public sealed class DeleteEmployeeEndpointTests(
                 deleteResponse.StatusCode);
 
             using var getResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/employees/{createdEmployeeId}");
 
             Assert.Equal(

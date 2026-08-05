@@ -215,4 +215,27 @@ public sealed class SwaggerAuthorizationDocumentationTests(
         return path.Value.GetProperty(
             httpMethod);
     }
+
+    [Theory]
+    [InlineData("/api/employees", "get")]
+    [InlineData("/api/employees", "post")]
+    [InlineData("/api/employees/{id}", "get")]
+    [InlineData("/api/employees/{id}", "put")]
+    [InlineData("/api/employees/{id}", "delete")]
+    public async Task SwaggerDocument_EmployeeAdministrationEndpoint_RequiresBearerSecurity(
+    string expectedPath,
+    string httpMethod)
+    {
+        using var document =
+            await GetSwaggerDocumentAsync();
+
+        var operation =
+            GetOperation(
+                document,
+                expectedPath,
+                httpMethod);
+
+        AssertRequiresBearerSecurity(
+            operation);
+    }
 }

@@ -1,6 +1,8 @@
-﻿using LeaveManagementSystem.Application.Employees.Abstractions;
-using LeaveManagementSystem.Application.Employees.Commands.DeleteEmployee;
+﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Authentication.Models;
 using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.Employees.Abstractions;
+using LeaveManagementSystem.Application.Employees.Commands.DeleteEmployee;
 using LeaveManagementSystem.Domain.Entities;
 using LeaveManagementSystem.Domain.Enums;
 using Xunit;
@@ -24,7 +26,7 @@ public sealed class DeleteEmployeeCommandHandlerTests
             };
 
         var handler =
-            new DeleteEmployeeCommandHandler(
+            CreateHandler(
                 writeRepository);
 
         var command =
@@ -88,7 +90,7 @@ public sealed class DeleteEmployeeCommandHandlerTests
             };
 
         var handler =
-            new DeleteEmployeeCommandHandler(
+            CreateHandler(
                 writeRepository);
 
         var command =
@@ -157,7 +159,7 @@ public sealed class DeleteEmployeeCommandHandlerTests
             };
 
         var handler =
-            new DeleteEmployeeCommandHandler(
+            CreateHandler(
                 writeRepository);
 
         var command =
@@ -204,7 +206,7 @@ public sealed class DeleteEmployeeCommandHandlerTests
             };
 
         var handler =
-            new DeleteEmployeeCommandHandler(
+            CreateHandler(
                 writeRepository);
 
         var command =
@@ -245,9 +247,13 @@ public sealed class DeleteEmployeeCommandHandlerTests
                     CreateExistingEmployee(employeeId)
             };
 
+        var currentUserAccessService =
+            CreateHrCurrentUserAccessService();
+
         var handler =
-            new DeleteEmployeeCommandHandler(
-                writeRepository);
+            CreateHandler(
+                writeRepository,
+                currentUserAccessService);
 
         var command =
             new DeleteEmployeeCommand(employeeId);
@@ -264,6 +270,10 @@ public sealed class DeleteEmployeeCommandHandlerTests
 
         Assert.Equal(
             cancellationToken,
+            currentUserAccessService.RequestedCancellationToken);
+
+        Assert.Equal(
+            cancellationToken,
             writeRepository.GetForUpdateCancellationToken);
 
         Assert.Equal(
@@ -273,6 +283,161 @@ public sealed class DeleteEmployeeCommandHandlerTests
         Assert.Equal(
             cancellationToken,
             writeRepository.SaveChangesCancellationToken);
+    }
+
+    [Fact]
+    public async Task Handle_NullCommand_ThrowsBeforeDependencyCalls()
+    {
+        var currentUserAccessService =
+            CreateHrCurrentUserAccessService();
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository();
+
+        var handler = CreateHandler(
+            writeRepository,
+            currentUserAccessService);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => handler.Handle(
+                null!,
+                CancellationToken.None));
+
+        Assert.Equal(
+            0,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetForUpdateCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_CurrentUserAccessMissing_ThrowsForbiddenBeforeRepositoryCalls()
+    {
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService
+            {
+                Result = null
+            };
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository();
+
+        var handler = CreateHandler(
+            writeRepository,
+            currentUserAccessService);
+
+        var exception =
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
+                () => handler.Handle(
+                    new DeleteEmployeeCommand(
+                        Guid.NewGuid()),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "Only current active HR employees can administer employees.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetForUpdateCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+    }
+
+    [Theory]
+    [InlineData(EmployeeRole.Employee)]
+    [InlineData(EmployeeRole.Manager)]
+    public async Task Handle_CurrentUserIsNotHr_ThrowsForbiddenBeforeRepositoryCalls(
+        EmployeeRole role)
+    {
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                role);
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository();
+
+        var handler = CreateHandler(
+            writeRepository,
+            currentUserAccessService);
+
+        var exception =
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
+                () => handler.Handle(
+                    new DeleteEmployeeCommand(
+                        Guid.NewGuid()),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "Only current active HR employees can administer employees.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetForUpdateCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+    }
+
+    private static DeleteEmployeeCommandHandler CreateHandler(
+        FakeEmployeeWriteRepository writeRepository,
+        FakeCurrentUserAccessService? currentUserAccessService = null)
+    {
+        return new DeleteEmployeeCommandHandler(
+            currentUserAccessService
+                ?? CreateHrCurrentUserAccessService(),
+            writeRepository);
+    }
+
+    private static FakeCurrentUserAccessService
+        CreateHrCurrentUserAccessService()
+    {
+        return CreateCurrentUserAccessService(
+            EmployeeRole.HR);
+    }
+
+    private static FakeCurrentUserAccessService
+        CreateCurrentUserAccessService(
+            EmployeeRole role)
+    {
+        return new FakeCurrentUserAccessService
+        {
+            Result = new CurrentUserAccess(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "current.user@example.com",
+                role)
+        };
     }
 
     private static Employee CreateExistingEmployee(
@@ -291,6 +456,31 @@ public sealed class DeleteEmployeeCommandHandlerTests
             CreatedAtUtc = DateTime.UtcNow.AddDays(-1),
             UpdatedAtUtc = null
         };
+    }
+
+    private sealed class FakeCurrentUserAccessService
+    : ICurrentUserAccessService
+    {
+        public CurrentUserAccess? Result { get; init; }
+
+        public int CallCount { get; private set; }
+
+        public CancellationToken RequestedCancellationToken
+        {
+            get;
+            private set;
+        }
+
+        public Task<CurrentUserAccess?> GetAsync(
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            RequestedCancellationToken =
+                cancellationToken;
+
+            return Task.FromResult(
+                Result);
+        }
     }
 
     private sealed class FakeEmployeeWriteRepository
