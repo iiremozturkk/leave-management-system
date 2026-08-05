@@ -895,6 +895,566 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         }
     }
 
+    [Fact]
+    public async Task GetLeaveRequests_ReturnsRoleScopedCollections()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var testData =
+            await CreateTeamAsync();
+
+        var managerOwnLeaveRequestId =
+            Guid.NewGuid();
+
+        var activeDirectReportLeaveRequestId =
+            Guid.NewGuid();
+
+        var inactiveDirectReportId =
+            Guid.NewGuid();
+
+        var inactiveDirectReportLeaveRequestId =
+            Guid.NewGuid();
+
+        var otherManagersLeaveRequestId =
+            Guid.NewGuid();
+
+        try
+        {
+            var managerOwnLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        managerOwnLeaveRequestId,
+
+                    EmployeeId =
+                        testData.ManagerId,
+
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+
+                    Reason =
+                        "Manager own collection scope request.",
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow,
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            managerOwnLeaveRequest.SetDateRange(
+                new DateOnly(2026, 9, 1),
+                new DateOnly(2026, 9, 2));
+
+            var activeDirectReportLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        activeDirectReportLeaveRequestId,
+
+                    EmployeeId =
+                        testData.EmployeeId,
+
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+
+                    Reason =
+                        "Active direct report collection scope request.",
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow.AddMinutes(1),
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            activeDirectReportLeaveRequest.SetDateRange(
+                new DateOnly(2026, 9, 10),
+                new DateOnly(2026, 9, 11));
+
+            var inactiveDirectReport =
+                new Employee
+                {
+                    Id =
+                        inactiveDirectReportId,
+
+                    FirstName =
+                        "Inactive",
+
+                    LastName =
+                        "DirectReport",
+
+                    Email =
+                        $"inactive.direct.report.{Guid.NewGuid():N}@example.com",
+
+                    DepartmentId =
+                        testData.DepartmentId,
+
+                    ManagerId =
+                        testData.ManagerId,
+
+                    Role =
+                        EmployeeRole.Employee,
+
+                    IsActive =
+                        false,
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow,
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            var inactiveDirectReportLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        inactiveDirectReportLeaveRequestId,
+
+                    EmployeeId =
+                        inactiveDirectReportId,
+
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+
+                    Reason =
+                        "Inactive direct report collection scope request.",
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow.AddMinutes(2),
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            inactiveDirectReportLeaveRequest.SetDateRange(
+                new DateOnly(2026, 9, 20),
+                new DateOnly(2026, 9, 21));
+
+            var otherManagersLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        otherManagersLeaveRequestId,
+
+                    EmployeeId =
+                        testData.OtherManagerId,
+
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+
+                    Reason =
+                        "Other manager collection scope request.",
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow.AddMinutes(3),
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            otherManagersLeaveRequest.SetDateRange(
+                new DateOnly(2026, 10, 1),
+                new DateOnly(2026, 10, 2));
+
+            using (var scope =
+                   _factory.Services.CreateScope())
+            {
+                var dbContext =
+                    scope.ServiceProvider
+                        .GetRequiredService<AppDbContext>();
+
+                dbContext.Employees.Add(
+                    inactiveDirectReport);
+
+                dbContext.LeaveRequests.AddRange(
+                    managerOwnLeaveRequest,
+                    activeDirectReportLeaveRequest,
+                    inactiveDirectReportLeaveRequest,
+                    otherManagersLeaveRequest);
+
+                await dbContext.SaveChangesAsync();
+            }
+
+            using var employeeResponse =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Get,
+                    "/api/leave-requests",
+                    testData.EmployeeAccessToken);
+
+            Assert.Equal(
+                HttpStatusCode.OK,
+                employeeResponse.StatusCode);
+
+            var employeeLeaveRequests =
+                await employeeResponse.Content
+                    .ReadFromJsonAsync<
+                        List<LeaveRequestResponse>>(
+                        JsonOptions);
+
+            Assert.NotNull(
+                employeeLeaveRequests);
+
+            Assert.Contains(
+                employeeLeaveRequests!,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    activeDirectReportLeaveRequestId);
+
+            Assert.DoesNotContain(
+                employeeLeaveRequests,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    managerOwnLeaveRequestId);
+
+            Assert.DoesNotContain(
+                employeeLeaveRequests,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    inactiveDirectReportLeaveRequestId);
+
+            Assert.DoesNotContain(
+                employeeLeaveRequests,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    otherManagersLeaveRequestId);
+
+            using var managerResponse =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Get,
+                    "/api/leave-requests",
+                    testData.ManagerAccessToken);
+
+            Assert.Equal(
+                HttpStatusCode.OK,
+                managerResponse.StatusCode);
+
+            var managerLeaveRequests =
+                await managerResponse.Content
+                    .ReadFromJsonAsync<
+                        List<LeaveRequestResponse>>(
+                        JsonOptions);
+
+            Assert.NotNull(
+                managerLeaveRequests);
+
+            Assert.Contains(
+                managerLeaveRequests!,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    activeDirectReportLeaveRequestId);
+
+            Assert.DoesNotContain(
+                managerLeaveRequests,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    managerOwnLeaveRequestId);
+
+            Assert.DoesNotContain(
+                managerLeaveRequests,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    inactiveDirectReportLeaveRequestId);
+
+            Assert.DoesNotContain(
+                managerLeaveRequests,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    otherManagersLeaveRequestId);
+        }
+        finally
+        {
+            await CleanupAsync(
+                testData.DepartmentId);
+        }
+    }
+
+    [Fact]
+    public async Task GetLeaveRequestById_EnforcesRoleScopedAccess()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var testData =
+            await CreateTeamAsync();
+
+        var managerOwnLeaveRequestId =
+            Guid.NewGuid();
+
+        var activeDirectReportLeaveRequestId =
+            Guid.NewGuid();
+
+        var otherManagersLeaveRequestId =
+            Guid.NewGuid();
+
+        var inactiveDirectReportId =
+            Guid.NewGuid();
+
+        var inactiveDirectReportLeaveRequestId =
+            Guid.NewGuid();
+
+        try
+        {
+            var managerOwnLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        managerOwnLeaveRequestId,
+
+                    EmployeeId =
+                        testData.ManagerId,
+
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+
+                    Reason =
+                        "Manager own by-id scope request.",
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow,
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            managerOwnLeaveRequest.SetDateRange(
+                new DateOnly(2026, 11, 1),
+                new DateOnly(2026, 11, 2));
+
+            var activeDirectReportLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        activeDirectReportLeaveRequestId,
+
+                    EmployeeId =
+                        testData.EmployeeId,
+
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+
+                    Reason =
+                        "Active direct report by-id scope request.",
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow.AddMinutes(1),
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            activeDirectReportLeaveRequest.SetDateRange(
+                new DateOnly(2026, 11, 10),
+                new DateOnly(2026, 11, 11));
+
+            var otherManagersLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        otherManagersLeaveRequestId,
+
+                    EmployeeId =
+                        testData.OtherManagerId,
+
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+
+                    Reason =
+                        "Other manager by-id scope request.",
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow.AddMinutes(2),
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            otherManagersLeaveRequest.SetDateRange(
+                new DateOnly(2026, 11, 20),
+                new DateOnly(2026, 11, 21));
+
+            var inactiveDirectReport =
+                new Employee
+                {
+                    Id =
+                        inactiveDirectReportId,
+
+                    FirstName =
+                        "Inactive",
+
+                    LastName =
+                        "DirectReportById",
+
+                    Email =
+                        $"inactive.direct.report.byid.{Guid.NewGuid():N}@example.com",
+
+                    DepartmentId =
+                        testData.DepartmentId,
+
+                    ManagerId =
+                        testData.ManagerId,
+
+                    Role =
+                        EmployeeRole.Employee,
+
+                    IsActive =
+                        false,
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow,
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            var inactiveDirectReportLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        inactiveDirectReportLeaveRequestId,
+
+                    EmployeeId =
+                        inactiveDirectReportId,
+
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+
+                    Reason =
+                        "Inactive direct report by-id scope request.",
+
+                    CreatedAtUtc =
+                        DateTime.UtcNow.AddMinutes(3),
+
+                    UpdatedAtUtc =
+                        null
+                };
+
+            inactiveDirectReportLeaveRequest.SetDateRange(
+                new DateOnly(2026, 12, 1),
+                new DateOnly(2026, 12, 2));
+
+            using (var scope =
+                   _factory.Services.CreateScope())
+            {
+                var dbContext =
+                    scope.ServiceProvider
+                        .GetRequiredService<AppDbContext>();
+
+                dbContext.Employees.Add(
+                    inactiveDirectReport);
+
+                dbContext.LeaveRequests.AddRange(
+                    managerOwnLeaveRequest,
+                    activeDirectReportLeaveRequest,
+                    otherManagersLeaveRequest,
+                    inactiveDirectReportLeaveRequest);
+
+                await dbContext.SaveChangesAsync();
+            }
+
+            using var employeeOwnResponse =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Get,
+                    $"/api/leave-requests/{activeDirectReportLeaveRequestId}",
+                    testData.EmployeeAccessToken);
+
+            Assert.Equal(
+                HttpStatusCode.OK,
+                employeeOwnResponse.StatusCode);
+
+            var employeeOwnLeaveRequest =
+                await employeeOwnResponse.Content
+                    .ReadFromJsonAsync<LeaveRequestResponse>(
+                        JsonOptions);
+
+            Assert.NotNull(
+                employeeOwnLeaveRequest);
+
+            Assert.Equal(
+                activeDirectReportLeaveRequestId,
+                employeeOwnLeaveRequest!.Id);
+
+            using var employeeOutOfScopeResponse =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Get,
+                    $"/api/leave-requests/{managerOwnLeaveRequestId}",
+                    testData.EmployeeAccessToken);
+
+            Assert.Equal(
+                HttpStatusCode.NotFound,
+                employeeOutOfScopeResponse.StatusCode);
+
+            using var managerOwnResponse =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Get,
+                    $"/api/leave-requests/{managerOwnLeaveRequestId}",
+                    testData.ManagerAccessToken);
+
+            Assert.Equal(
+                HttpStatusCode.OK,
+                managerOwnResponse.StatusCode);
+
+            var managerOwnResult =
+                await managerOwnResponse.Content
+                    .ReadFromJsonAsync<LeaveRequestResponse>(
+                        JsonOptions);
+
+            Assert.NotNull(
+                managerOwnResult);
+
+            Assert.Equal(
+                managerOwnLeaveRequestId,
+                managerOwnResult!.Id);
+
+            using var managerDirectReportResponse =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Get,
+                    $"/api/leave-requests/{activeDirectReportLeaveRequestId}",
+                    testData.ManagerAccessToken);
+
+            Assert.Equal(
+                HttpStatusCode.OK,
+                managerDirectReportResponse.StatusCode);
+
+            var directReportResult =
+                await managerDirectReportResponse.Content
+                    .ReadFromJsonAsync<LeaveRequestResponse>(
+                        JsonOptions);
+
+            Assert.NotNull(
+                directReportResult);
+
+            Assert.Equal(
+                activeDirectReportLeaveRequestId,
+                directReportResult!.Id);
+
+            using var managerOutOfScopeResponse =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Get,
+                    $"/api/leave-requests/{otherManagersLeaveRequestId}",
+                    testData.ManagerAccessToken);
+
+            Assert.Equal(
+                HttpStatusCode.NotFound,
+                managerOutOfScopeResponse.StatusCode);
+
+            using var inactiveDirectReportResponse =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Get,
+                    $"/api/leave-requests/{inactiveDirectReportLeaveRequestId}",
+                    testData.ManagerAccessToken);
+
+            Assert.Equal(
+                HttpStatusCode.NotFound,
+                inactiveDirectReportResponse.StatusCode);
+        }
+        finally
+        {
+            await CleanupAsync(
+                testData.DepartmentId);
+        }
+    }
+
     private async Task EnsureDatabaseReadyAsync()
     {
         using var scope = _factory.Services.CreateScope();

@@ -16,7 +16,7 @@ public sealed class GetLeaveRequestsEndpointTests(
     : HrIntegrationTestBase(factory)
 {
     [Fact]
-    public async Task GetLeaveRequests_ReturnsOnlyCurrentUsersRequestsOrderedByCreatedAtDescending()
+    public async Task GetLeaveRequests_HrReturnsAllRequestsIncludingInactiveEmployeeHistoryOrderedByCreatedAtDescending()
     {
         await EnsureDatabaseReadyAsync();
 
@@ -140,6 +140,19 @@ public sealed class GetLeaveRequestsEndpointTests(
                     scope.ServiceProvider
                         .GetRequiredService<AppDbContext>();
 
+                var otherEmployee =
+                    await dbContext.Employees
+                        .SingleAsync(
+                            employee =>
+                                employee.Id ==
+                                otherEmployeeId.Value);
+
+                otherEmployee.IsActive =
+                    false;
+
+                otherEmployee.UpdatedAtUtc =
+                    DateTime.UtcNow;
+
                 dbContext.LeaveRequests.AddRange(
                     olderOwnLeaveRequest,
                     newerOwnLeaveRequest,
@@ -165,18 +178,23 @@ public sealed class GetLeaveRequestsEndpointTests(
             Assert.NotNull(
                 leaveRequests);
 
-            Assert.DoesNotContain(
+            Assert.Contains(
                 leaveRequests!,
                 leaveRequest =>
                     leaveRequest.Id ==
-                    otherEmployeesLeaveRequestId);
+                    olderOwnLeaveRequestId);
 
-            Assert.All(
+            Assert.Contains(
                 leaveRequests,
                 leaveRequest =>
-                    Assert.Equal(
-                        HrEmployeeId,
-                        leaveRequest.EmployeeId));
+                    leaveRequest.Id ==
+                    newerOwnLeaveRequestId);
+
+            Assert.Contains(
+                leaveRequests,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    otherEmployeesLeaveRequestId);
 
             var olderIndex =
                 leaveRequests.FindIndex(
@@ -190,6 +208,12 @@ public sealed class GetLeaveRequestsEndpointTests(
                         leaveRequest.Id ==
                         newerOwnLeaveRequestId);
 
+            var historicalIndex =
+                leaveRequests.FindIndex(
+                    leaveRequest =>
+                        leaveRequest.Id ==
+                        otherEmployeesLeaveRequestId);
+
             Assert.True(
                 olderIndex >= 0);
 
@@ -197,10 +221,27 @@ public sealed class GetLeaveRequestsEndpointTests(
                 newerIndex >= 0);
 
             Assert.True(
+                historicalIndex >= 0);
+
+            Assert.True(
+                historicalIndex < newerIndex);
+
+            Assert.True(
                 newerIndex < olderIndex);
 
             var projectedLeaveRequest =
                 leaveRequests[newerIndex];
+
+            var historicalLeaveRequest =
+                leaveRequests[historicalIndex];
+
+            Assert.Equal(
+                otherEmployeesLeaveRequestId,
+                historicalLeaveRequest.Id);
+
+            Assert.Equal(
+                otherEmployeeId.Value,
+                historicalLeaveRequest.EmployeeId);
 
             Assert.Equal(
                 newerOwnLeaveRequestId,

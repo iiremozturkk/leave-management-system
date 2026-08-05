@@ -2,13 +2,14 @@
 using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
+using LeaveManagementSystem.Domain.Enums;
 using MediatR;
 
 namespace LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequests;
 
 public sealed class GetLeaveRequestsQueryHandler(
-    ILeaveRequestSelfServiceReadRepository
-        leaveRequestSelfServiceReadRepository,
+    ILeaveRequestReadRepository leaveRequestReadRepository,
+    ILeaveRequestScopedReadRepository leaveRequestScopedReadRepository,
     ICurrentUserAccessService currentUserAccessService)
     : IRequestHandler<
         GetLeaveRequestsQuery,
@@ -28,12 +29,31 @@ public sealed class GetLeaveRequestsQueryHandler(
         if (currentUserAccess is null)
         {
             throw new ForbiddenOperationException(
-                "Only current active employees can use leave self-service operations.");
+                "Only current active employees can access leave requests.");
         }
 
-        return await leaveRequestSelfServiceReadRepository
-            .GetAllForEmployeeAsync(
-                currentUserAccess.EmployeeId,
-                cancellationToken);
+        return currentUserAccess.Role switch
+        {
+            EmployeeRole.Employee =>
+                await leaveRequestScopedReadRepository
+                    .GetAllForEmployeeAsync(
+                        currentUserAccess.EmployeeId,
+                        cancellationToken),
+
+            EmployeeRole.Manager =>
+                await leaveRequestScopedReadRepository
+                    .GetAllForManagerAsync(
+                        currentUserAccess.EmployeeId,
+                        cancellationToken),
+
+            EmployeeRole.HR =>
+                await leaveRequestReadRepository
+                    .GetAllAsync(
+                        cancellationToken),
+
+            _ =>
+                throw new ForbiddenOperationException(
+                    "The current employee role is not authorized to access leave requests.")
+        };
     }
 }

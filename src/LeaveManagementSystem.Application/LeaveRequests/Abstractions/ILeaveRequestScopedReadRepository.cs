@@ -2,7 +2,7 @@
 
 namespace LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 
-public interface ILeaveRequestSelfServiceReadRepository
+public interface ILeaveRequestScopedReadRepository
 {
     Task<IReadOnlyList<LeaveRequestDto>> GetAllForEmployeeAsync(
         Guid employeeId,
@@ -11,5 +11,14 @@ public interface ILeaveRequestSelfServiceReadRepository
     Task<LeaveRequestDto?> GetByIdForEmployeeAsync(
         Guid id,
         Guid employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<LeaveRequestDto>> GetAllForManagerAsync(
+        Guid managerId,
+        CancellationToken cancellationToken = default);
+
+    Task<LeaveRequestDto?> GetByIdForManagerAsync(
+        Guid id,
+        Guid managerId,
         CancellationToken cancellationToken = default);
 }

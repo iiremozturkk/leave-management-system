@@ -5,6 +5,7 @@ using LeaveManagementSystem.Domain.Enums;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using LeaveManagementSystem.IntegrationTests.Contracts;
 using LeaveManagementSystem.IntegrationTests.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -27,10 +28,13 @@ public sealed class GetLeaveRequestByIdEndpointTests(
             {
                 leaveTypeId =
                     AnnualLeaveTypeId,
+
                 startDate =
                     "2026-11-10",
+
                 endDate =
                     "2026-11-12",
+
                 reason =
                     "Get by id integration test."
             };
@@ -139,15 +143,17 @@ public sealed class GetLeaveRequestByIdEndpointTests(
             await CleanupAsync(
                 leaveRequestId:
                     leaveRequestId,
+
                 employeeId:
                     null,
+
                 departmentId:
                     null);
         }
     }
 
     [Fact]
-    public async Task GetLeaveRequestById_OtherEmployeesLeaveRequest_ReturnsNotFound()
+    public async Task GetLeaveRequestById_HrCanReadInactiveEmployeesHistoricalRequest()
     {
         await EnsureDatabaseReadyAsync();
 
@@ -170,14 +176,19 @@ public sealed class GetLeaveRequestByIdEndpointTests(
                 {
                     Id =
                         leaveRequestId,
+
                     EmployeeId =
                         otherEmployeeId.Value,
+
                     LeaveTypeId =
                         AnnualLeaveTypeId,
+
                     Reason =
                         "Another employee's leave request.",
+
                     CreatedAtUtc =
                         DateTime.UtcNow,
+
                     UpdatedAtUtc =
                         null
                 };
@@ -193,6 +204,19 @@ public sealed class GetLeaveRequestByIdEndpointTests(
                     scope.ServiceProvider
                         .GetRequiredService<AppDbContext>();
 
+                var otherEmployee =
+                    await dbContext.Employees
+                        .SingleAsync(
+                            employee =>
+                                employee.Id ==
+                                otherEmployeeId.Value);
+
+                otherEmployee.IsActive =
+                    false;
+
+                otherEmployee.UpdatedAtUtc =
+                    DateTime.UtcNow;
+
                 dbContext.LeaveRequests.Add(
                     leaveRequest);
 
@@ -204,16 +228,38 @@ public sealed class GetLeaveRequestByIdEndpointTests(
                     $"/api/leave-requests/{leaveRequestId}");
 
             Assert.Equal(
-                HttpStatusCode.NotFound,
+                HttpStatusCode.OK,
                 response.StatusCode);
+
+            var historicalLeaveRequest =
+                await response.Content
+                    .ReadFromJsonAsync<LeaveRequestResponse>(
+                        JsonOptions);
+
+            Assert.NotNull(
+                historicalLeaveRequest);
+
+            Assert.Equal(
+                leaveRequestId,
+                historicalLeaveRequest!.Id);
+
+            Assert.Equal(
+                otherEmployeeId.Value,
+                historicalLeaveRequest.EmployeeId);
+
+            Assert.Equal(
+                "Another employee's leave request.",
+                historicalLeaveRequest.Reason);
         }
         finally
         {
             await CleanupAsync(
                 leaveRequestId:
                     leaveRequestId,
+
                 employeeId:
                     otherEmployeeId,
+
                 departmentId:
                     departmentId);
         }

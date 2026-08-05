@@ -2,13 +2,14 @@
 using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
+using LeaveManagementSystem.Domain.Enums;
 using MediatR;
 
 namespace LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequestById;
 
 public sealed class GetLeaveRequestByIdQueryHandler(
-    ILeaveRequestSelfServiceReadRepository
-        leaveRequestSelfServiceReadRepository,
+    ILeaveRequestReadRepository leaveRequestReadRepository,
+    ILeaveRequestScopedReadRepository leaveRequestScopedReadRepository,
     ICurrentUserAccessService currentUserAccessService)
     : IRequestHandler<
         GetLeaveRequestByIdQuery,
@@ -28,13 +29,34 @@ public sealed class GetLeaveRequestByIdQueryHandler(
         if (currentUserAccess is null)
         {
             throw new ForbiddenOperationException(
-                "Only current active employees can use leave self-service operations.");
+                "Only current active employees can access leave requests.");
         }
 
-        return await leaveRequestSelfServiceReadRepository
-            .GetByIdForEmployeeAsync(
-                request.Id,
-                currentUserAccess.EmployeeId,
-                cancellationToken);
+        return currentUserAccess.Role switch
+        {
+            EmployeeRole.Employee =>
+                await leaveRequestScopedReadRepository
+                    .GetByIdForEmployeeAsync(
+                        request.Id,
+                        currentUserAccess.EmployeeId,
+                        cancellationToken),
+
+            EmployeeRole.Manager =>
+                await leaveRequestScopedReadRepository
+                    .GetByIdForManagerAsync(
+                        request.Id,
+                        currentUserAccess.EmployeeId,
+                        cancellationToken),
+
+            EmployeeRole.HR =>
+                await leaveRequestReadRepository
+                    .GetByIdAsync(
+                        request.Id,
+                        cancellationToken),
+
+            _ =>
+                throw new ForbiddenOperationException(
+                    "The current employee role is not authorized to access leave requests.")
+        };
     }
 }

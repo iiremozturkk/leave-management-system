@@ -12,7 +12,7 @@ namespace LeaveManagementSystem.Application.UnitTests.LeaveRequests.Queries.GetL
 public sealed class GetLeaveRequestByIdQueryHandlerTests
 {
     [Fact]
-    public async Task Handle_LeaveRequestExists_ReturnsLeaveRequestFromRepository()
+    public async Task Handle_Employee_ReturnsLeaveRequestFromEmployeeScope()
     {
         var leaveRequestId =
             Guid.NewGuid();
@@ -26,7 +26,10 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
                 employeeId);
 
         var readRepository =
-            new FakeLeaveRequestSelfServiceReadRepository
+            new FakeLeaveRequestReadRepository();
+
+        var scopedReadRepository =
+            new FakeLeaveRequestScopedReadRepository
             {
                 LeaveRequestById =
                     expectedLeaveRequest
@@ -34,19 +37,18 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
 
         var currentUserAccessService =
             CreateCurrentUserAccessService(
-                employeeId);
+                employeeId,
+                EmployeeRole.Employee);
 
         var handler =
             new GetLeaveRequestByIdQueryHandler(
                 readRepository,
+                scopedReadRepository,
                 currentUserAccessService);
 
-        var query =
-            new GetLeaveRequestByIdQuery(
-                leaveRequestId);
-
         var result = await handler.Handle(
-            query,
+            new GetLeaveRequestByIdQuery(
+                leaveRequestId),
             CancellationToken.None);
 
         Assert.Same(
@@ -54,20 +56,164 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
             result);
 
         Assert.Equal(
+            1,
+            scopedReadRepository
+                .GetByIdForEmployeeCallCount);
+
+        Assert.Equal(
+            leaveRequestId,
+            scopedReadRepository
+                .RequestedLeaveRequestId);
+
+        Assert.Equal(
+            employeeId,
+            scopedReadRepository
+                .RequestedEmployeeId);
+
+        Assert.Equal(
+            0,
+            scopedReadRepository
+                .GetByIdForManagerCallCount);
+
+        Assert.Equal(
+            0,
+            readRepository.GetByIdCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_Manager_ReturnsLeaveRequestFromManagerScope()
+    {
+        var leaveRequestId =
+            Guid.NewGuid();
+
+        var managerId =
+            Guid.NewGuid();
+
+        var expectedLeaveRequest =
+            CreateLeaveRequestDto(
+                leaveRequestId,
+                Guid.NewGuid());
+
+        var readRepository =
+            new FakeLeaveRequestReadRepository();
+
+        var scopedReadRepository =
+            new FakeLeaveRequestScopedReadRepository
+            {
+                LeaveRequestById =
+                    expectedLeaveRequest
+            };
+
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                managerId,
+                EmployeeRole.Manager);
+
+        var handler =
+            new GetLeaveRequestByIdQueryHandler(
+                readRepository,
+                scopedReadRepository,
+                currentUserAccessService);
+
+        var result = await handler.Handle(
+            new GetLeaveRequestByIdQuery(
+                leaveRequestId),
+            CancellationToken.None);
+
+        Assert.Same(
+            expectedLeaveRequest,
+            result);
+
+        Assert.Equal(
+            1,
+            scopedReadRepository
+                .GetByIdForManagerCallCount);
+
+        Assert.Equal(
+            leaveRequestId,
+            scopedReadRepository
+                .RequestedLeaveRequestId);
+
+        Assert.Equal(
+            managerId,
+            scopedReadRepository
+                .RequestedManagerId);
+
+        Assert.Equal(
+            0,
+            scopedReadRepository
+                .GetByIdForEmployeeCallCount);
+
+        Assert.Equal(
+            0,
+            readRepository.GetByIdCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_Hr_ReturnsLeaveRequestFromUnrestrictedRepository()
+    {
+        var leaveRequestId =
+            Guid.NewGuid();
+
+        var hrEmployeeId =
+            Guid.NewGuid();
+
+        var expectedLeaveRequest =
+            CreateLeaveRequestDto(
+                leaveRequestId,
+                Guid.NewGuid());
+
+        var readRepository =
+            new FakeLeaveRequestReadRepository
+            {
+                LeaveRequestById =
+                    expectedLeaveRequest
+            };
+
+        var scopedReadRepository =
+            new FakeLeaveRequestScopedReadRepository();
+
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                hrEmployeeId,
+                EmployeeRole.HR);
+
+        var handler =
+            new GetLeaveRequestByIdQueryHandler(
+                readRepository,
+                scopedReadRepository,
+                currentUserAccessService);
+
+        var result = await handler.Handle(
+            new GetLeaveRequestByIdQuery(
+                leaveRequestId),
+            CancellationToken.None);
+
+        Assert.Same(
+            expectedLeaveRequest,
+            result);
+
+        Assert.Equal(
+            1,
+            readRepository.GetByIdCallCount);
+
+        Assert.Equal(
             leaveRequestId,
             readRepository.RequestedLeaveRequestId);
 
         Assert.Equal(
-            employeeId,
-            readRepository.RequestedEmployeeId);
+            0,
+            scopedReadRepository
+                .GetByIdForEmployeeCallCount);
 
         Assert.Equal(
-            1,
-            readRepository.GetByIdForEmployeeCallCount);
+            0,
+            scopedReadRepository
+                .GetByIdForManagerCallCount);
     }
 
     [Fact]
-    public async Task Handle_LeaveRequestDoesNotExist_ReturnsNull()
+    public async Task Handle_ScopedLeaveRequestDoesNotExist_ReturnsNull()
     {
         var leaveRequestId =
             Guid.NewGuid();
@@ -76,42 +222,47 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
             Guid.NewGuid();
 
         var readRepository =
-            new FakeLeaveRequestSelfServiceReadRepository
+            new FakeLeaveRequestReadRepository();
+
+        var scopedReadRepository =
+            new FakeLeaveRequestScopedReadRepository
             {
                 LeaveRequestById = null
             };
 
         var currentUserAccessService =
             CreateCurrentUserAccessService(
-                employeeId);
+                employeeId,
+                EmployeeRole.Employee);
 
         var handler =
             new GetLeaveRequestByIdQueryHandler(
                 readRepository,
+                scopedReadRepository,
                 currentUserAccessService);
 
-        var query =
-            new GetLeaveRequestByIdQuery(
-                leaveRequestId);
-
         var result = await handler.Handle(
-            query,
+            new GetLeaveRequestByIdQuery(
+                leaveRequestId),
             CancellationToken.None);
 
         Assert.Null(
             result);
 
         Assert.Equal(
+            1,
+            scopedReadRepository
+                .GetByIdForEmployeeCallCount);
+
+        Assert.Equal(
             leaveRequestId,
-            readRepository.RequestedLeaveRequestId);
+            scopedReadRepository
+                .RequestedLeaveRequestId);
 
         Assert.Equal(
             employeeId,
-            readRepository.RequestedEmployeeId);
-
-        Assert.Equal(
-            1,
-            readRepository.GetByIdForEmployeeCallCount);
+            scopedReadRepository
+                .RequestedEmployeeId);
     }
 
     [Fact]
@@ -124,20 +275,21 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
             Guid.NewGuid();
 
         var readRepository =
-            new FakeLeaveRequestSelfServiceReadRepository();
+            new FakeLeaveRequestReadRepository();
+
+        var scopedReadRepository =
+            new FakeLeaveRequestScopedReadRepository();
 
         var currentUserAccessService =
             CreateCurrentUserAccessService(
-                employeeId);
+                employeeId,
+                EmployeeRole.Employee);
 
         var handler =
             new GetLeaveRequestByIdQueryHandler(
                 readRepository,
+                scopedReadRepository,
                 currentUserAccessService);
-
-        var query =
-            new GetLeaveRequestByIdQuery(
-                leaveRequestId);
 
         using var cancellationTokenSource =
             new CancellationTokenSource();
@@ -146,7 +298,8 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
             cancellationTokenSource.Token;
 
         await handler.Handle(
-            query,
+            new GetLeaveRequestByIdQuery(
+                leaveRequestId),
             cancellationToken);
 
         Assert.Equal(
@@ -156,14 +309,18 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
 
         Assert.Equal(
             cancellationToken,
-            readRepository.GetByIdCancellationToken);
+            scopedReadRepository
+                .GetByIdCancellationToken);
     }
 
     [Fact]
     public async Task Handle_CurrentUserAccessMissing_ThrowsForbiddenBeforeRepositoryCall()
     {
         var readRepository =
-            new FakeLeaveRequestSelfServiceReadRepository();
+            new FakeLeaveRequestReadRepository();
+
+        var scopedReadRepository =
+            new FakeLeaveRequestScopedReadRepository();
 
         var currentUserAccessService =
             new FakeCurrentUserAccessService
@@ -174,6 +331,7 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
         var handler =
             new GetLeaveRequestByIdQueryHandler(
                 readRepository,
+                scopedReadRepository,
                 currentUserAccessService);
 
         var exception =
@@ -184,7 +342,7 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
                     CancellationToken.None));
 
         Assert.Equal(
-            "Only current active employees can use leave self-service operations.",
+            "Only current active employees can access leave requests.",
             exception.Message);
 
         Assert.Equal(
@@ -193,12 +351,23 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
 
         Assert.Equal(
             0,
-            readRepository.GetByIdForEmployeeCallCount);
+            readRepository.GetByIdCallCount);
+
+        Assert.Equal(
+            0,
+            scopedReadRepository
+                .GetByIdForEmployeeCallCount);
+
+        Assert.Equal(
+            0,
+            scopedReadRepository
+                .GetByIdForManagerCallCount);
     }
 
     private static FakeCurrentUserAccessService
         CreateCurrentUserAccessService(
-            Guid employeeId)
+            Guid employeeId,
+            EmployeeRole role)
     {
         return new FakeCurrentUserAccessService
         {
@@ -207,7 +376,7 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
                     Guid.NewGuid(),
                     employeeId,
                     "irem@example.com",
-                    EmployeeRole.Employee)
+                    role)
         };
     }
 
@@ -234,13 +403,67 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
             null);
     }
 
-    private sealed class FakeLeaveRequestSelfServiceReadRepository
-        : ILeaveRequestSelfServiceReadRepository
+    private sealed class FakeLeaveRequestReadRepository
+        : ILeaveRequestReadRepository
     {
         public LeaveRequestDto? LeaveRequestById
         {
             get;
             init;
+        }
+
+        public int GetByIdCallCount
+        {
+            get;
+            private set;
+        }
+
+        public Guid RequestedLeaveRequestId
+        {
+            get;
+            private set;
+        }
+
+        public Task<IReadOnlyList<LeaveRequestDto>> GetAllAsync(
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "Unexpected repository call.");
+        }
+
+        public Task<LeaveRequestDto?> GetByIdAsync(
+            Guid id,
+            CancellationToken cancellationToken = default)
+        {
+            GetByIdCallCount++;
+
+            RequestedLeaveRequestId =
+                id;
+
+            return Task.FromResult(
+                LeaveRequestById);
+        }
+    }
+
+    private sealed class FakeLeaveRequestScopedReadRepository
+        : ILeaveRequestScopedReadRepository
+    {
+        public LeaveRequestDto? LeaveRequestById
+        {
+            get;
+            init;
+        }
+
+        public int GetByIdForEmployeeCallCount
+        {
+            get;
+            private set;
+        }
+
+        public int GetByIdForManagerCallCount
+        {
+            get;
+            private set;
         }
 
         public Guid RequestedLeaveRequestId
@@ -255,7 +478,7 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
             private set;
         }
 
-        public int GetByIdForEmployeeCallCount
+        public Guid RequestedManagerId
         {
             get;
             private set;
@@ -276,6 +499,15 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
                 "Unexpected repository call.");
         }
 
+        public Task<IReadOnlyList<LeaveRequestDto>>
+            GetAllForManagerAsync(
+                Guid managerId,
+                CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "Unexpected repository call.");
+        }
+
         public Task<LeaveRequestDto?> GetByIdForEmployeeAsync(
             Guid id,
             Guid employeeId,
@@ -288,6 +520,26 @@ public sealed class GetLeaveRequestByIdQueryHandlerTests
 
             RequestedEmployeeId =
                 employeeId;
+
+            GetByIdCancellationToken =
+                cancellationToken;
+
+            return Task.FromResult(
+                LeaveRequestById);
+        }
+
+        public Task<LeaveRequestDto?> GetByIdForManagerAsync(
+            Guid id,
+            Guid managerId,
+            CancellationToken cancellationToken = default)
+        {
+            GetByIdForManagerCallCount++;
+
+            RequestedLeaveRequestId =
+                id;
+
+            RequestedManagerId =
+                managerId;
 
             GetByIdCancellationToken =
                 cancellationToken;
