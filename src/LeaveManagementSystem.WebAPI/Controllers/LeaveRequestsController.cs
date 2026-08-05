@@ -8,6 +8,7 @@ using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveBalance;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequestById;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequests;
+using LeaveManagementSystem.Application.LeaveRequests.Queries.GetMyLeaveRequests;
 using LeaveManagementSystem.WebAPI.Authorization.Policies;
 using Microsoft.AspNetCore.Authorization;
 using MediatR;
@@ -31,6 +32,21 @@ public sealed class LeaveRequestsController(
     {
         var leaveRequests = await sender.Send(
             new GetLeaveRequestsQuery(),
+            cancellationToken);
+
+        return Ok(leaveRequests);
+    }
+
+    [HttpGet("mine")]
+    [Authorize]
+    [ProducesResponseType(
+        typeof(IReadOnlyList<LeaveRequestDto>),
+        StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<LeaveRequestDto>>> GetMine(
+       CancellationToken cancellationToken)
+    {
+        var leaveRequests = await sender.Send(
+            new GetMyLeaveRequestsQuery(),
             cancellationToken);
 
         return Ok(leaveRequests);

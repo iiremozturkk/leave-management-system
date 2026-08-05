@@ -339,4 +339,153 @@ public sealed class GetLeaveRequestsEndpointTests(
                 departmentId: departmentId);
         }
     }
+
+    [Fact]
+    public async Task GetMyLeaveRequests_HrReturnsOnlyOwnRequests()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var departmentId =
+            await CreateDepartmentAsync();
+
+        Guid? otherEmployeeId = null;
+
+        var ownLeaveRequestId =
+            Guid.NewGuid();
+
+        var otherEmployeesLeaveRequestId =
+            Guid.NewGuid();
+
+        try
+        {
+            otherEmployeeId =
+                await CreateEmployeeViaApiAsync(
+                    departmentId);
+
+            var ownLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        ownLeaveRequestId,
+                    EmployeeId =
+                        HrEmployeeId,
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+                    Reason =
+                        "Current HR employee's own request.",
+                    CreatedAtUtc =
+                        DateTime.UtcNow.AddMinutes(-1),
+                    UpdatedAtUtc =
+                        null
+                };
+
+            ownLeaveRequest.SetDateRange(
+                new DateOnly(2026, 12, 10),
+                new DateOnly(2026, 12, 11));
+
+            var otherEmployeesLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        otherEmployeesLeaveRequestId,
+                    EmployeeId =
+                        otherEmployeeId.Value,
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+                    Reason =
+                        "Another employee's request.",
+                    CreatedAtUtc =
+                        DateTime.UtcNow,
+                    UpdatedAtUtc =
+                        null
+                };
+
+            otherEmployeesLeaveRequest.SetDateRange(
+                new DateOnly(2026, 12, 15),
+                new DateOnly(2026, 12, 16));
+
+            using (var scope =
+                   _factory.Services.CreateScope())
+            {
+                var dbContext =
+                    scope.ServiceProvider
+                        .GetRequiredService<AppDbContext>();
+
+                dbContext.LeaveRequests.AddRange(
+                    ownLeaveRequest,
+                    otherEmployeesLeaveRequest);
+
+                await dbContext.SaveChangesAsync();
+            }
+
+            using var response =
+                await HrClient.GetAsync(
+                    "/api/leave-requests/mine");
+
+            Assert.Equal(
+                HttpStatusCode.OK,
+                response.StatusCode);
+
+            var leaveRequests =
+                await response.Content
+                    .ReadFromJsonAsync<
+                        List<LeaveRequestResponse>>(
+                            JsonOptions);
+
+            Assert.NotNull(
+                leaveRequests);
+
+            Assert.Contains(
+                leaveRequests!,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    ownLeaveRequestId);
+
+            Assert.DoesNotContain(
+                leaveRequests,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    otherEmployeesLeaveRequestId);
+
+            Assert.All(
+                leaveRequests,
+                leaveRequest =>
+                    Assert.Equal(
+                        HrEmployeeId,
+                        leaveRequest.EmployeeId));
+        }
+        finally
+        {
+            using (var scope =
+                   _factory.Services.CreateScope())
+            {
+                var dbContext =
+                    scope.ServiceProvider
+                        .GetRequiredService<AppDbContext>();
+
+                var leaveRequests =
+                    await dbContext.LeaveRequests
+                        .Where(
+                            leaveRequest =>
+                                leaveRequest.Id ==
+                                ownLeaveRequestId
+                                || leaveRequest.Id ==
+                                otherEmployeesLeaveRequestId)
+                        .ToListAsync();
+
+                if (leaveRequests.Count > 0)
+                {
+                    dbContext.LeaveRequests.RemoveRange(
+                        leaveRequests);
+
+                    await dbContext.SaveChangesAsync();
+                }
+            }
+
+            await CleanupAsync(
+                leaveRequestId: null,
+                employeeId: otherEmployeeId,
+                departmentId: departmentId);
+        }
+    }
 }
