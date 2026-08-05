@@ -35,14 +35,14 @@ public sealed class CreateEmployeeCommandHandler(
         if (request.ManagerId.HasValue)
         {
             var managerExists =
-                await employeeWriteRepository.ActiveEmployeeExistsAsync(
+                await employeeWriteRepository.ActiveManagerExistsAsync(
                     request.ManagerId.Value,
                     cancellationToken);
 
             if (!managerExists)
             {
                 throw new BusinessRuleException(
-                    "Manager does not exist or is not active.");
+                    "Manager does not exist, is not active, or does not have the Manager role.");
             }
         }
 

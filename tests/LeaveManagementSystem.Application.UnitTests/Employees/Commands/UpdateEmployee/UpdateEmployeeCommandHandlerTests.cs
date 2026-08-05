@@ -109,7 +109,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         Assert.Equal(
             managerId,
-            writeRepository.RequestedActiveEmployeeId);
+            writeRepository.RequestedActiveManagerId);
 
         Assert.Equal(
             "irem.ozturk@example.com",
@@ -129,7 +129,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         Assert.Equal(
             1,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             1,
@@ -194,7 +194,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         Assert.Equal(
             0,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             0,
@@ -253,7 +253,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         Assert.Equal(
             0,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             0,
@@ -308,7 +308,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         Assert.Equal(
             0,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             0,
@@ -324,7 +324,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ManagerDoesNotExistOrIsInactive_ThrowsAndDoesNotPersist()
+    public async Task Handle_ManagerIsNotAnActiveManager_ThrowsAndDoesNotPersist()
     {
         var employeeId = Guid.NewGuid();
         var managerId = Guid.NewGuid();
@@ -334,7 +334,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
             {
                 EmployeeForUpdate =
                     CreateExistingEmployee(employeeId),
-                ActiveEmployeeExistsResult = false
+                ActiveManagerExistsResult = false
             };
 
         var readRepository =
@@ -356,7 +356,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
                     CancellationToken.None));
 
         Assert.Equal(
-            "Manager does not exist or is not active.",
+            "Manager does not exist, is not active, or does not have the Manager role.",
             exception.Message);
 
         Assert.Equal(
@@ -365,11 +365,11 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         Assert.Equal(
             1,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             managerId,
-            writeRepository.RequestedActiveEmployeeId);
+            writeRepository.RequestedActiveManagerId);
 
         Assert.Equal(
             0,
@@ -382,6 +382,249 @@ public sealed class UpdateEmployeeCommandHandlerTests
         Assert.Equal(
             0,
             readRepository.GetByIdCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_ProposedManagerCreatesIndirectCycle_ThrowsAndDoesNotPersist()
+    {
+        var employeeId = Guid.NewGuid();
+        var proposedManagerId = Guid.NewGuid();
+        var upperManagerId = Guid.NewGuid();
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository
+            {
+                EmployeeForUpdate =
+                    CreateExistingEmployee(employeeId),
+
+                ManagerIdResultFactory = id =>
+                {
+                    if (id == proposedManagerId)
+                    {
+                        return upperManagerId;
+                    }
+
+                    if (id == upperManagerId)
+                    {
+                        return employeeId;
+                    }
+
+                    return null;
+                }
+            };
+
+        var readRepository =
+            new FakeEmployeeReadRepository();
+
+        var handler =
+            new UpdateEmployeeCommandHandler(
+                writeRepository,
+                readRepository);
+
+        var command =
+            CreateValidCommand(
+                employeeId,
+                Guid.NewGuid(),
+                proposedManagerId);
+
+        var exception =
+            await Assert.ThrowsAsync<BusinessRuleException>(
+                () => handler.Handle(
+                    command,
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "Manager hierarchy cannot contain a cycle.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            writeRepository.ActiveManagerExistsCallCount);
+
+        Assert.Equal(
+            2,
+            writeRepository.GetManagerIdCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.EmailExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            readRepository.GetByIdCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_DeactivatingManagerWithActiveDirectReports_ThrowsAndDoesNotPersist()
+    {
+        var employeeId = Guid.NewGuid();
+
+        var employee =
+            CreateExistingEmployee(employeeId);
+
+        employee.Role =
+            EmployeeRole.Manager;
+
+        employee.IsActive =
+            true;
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository
+            {
+                EmployeeForUpdate = employee,
+                HasActiveDirectReportsResult = true
+            };
+
+        var readRepository =
+            new FakeEmployeeReadRepository();
+
+        var handler =
+            new UpdateEmployeeCommandHandler(
+                writeRepository,
+                readRepository);
+
+        var command =
+            CreateValidCommand(
+                employeeId,
+                Guid.NewGuid(),
+                null)
+            with
+            {
+                Role = EmployeeRole.Manager,
+                IsActive = false
+            };
+
+        var exception =
+            await Assert.ThrowsAsync<BusinessRuleException>(
+                () => handler.Handle(
+                    command,
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "A manager with active direct reports cannot be deactivated or assigned another role.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.ActiveManagerExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetManagerIdCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.EmailExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            readRepository.GetByIdCallCount);
+
+        Assert.True(employee.IsActive);
+
+        Assert.Equal(
+            EmployeeRole.Manager,
+            employee.Role);
+    }
+
+    [Fact]
+    public async Task Handle_DemotingManagerWithActiveDirectReports_ThrowsAndDoesNotPersist()
+    {
+        var employeeId = Guid.NewGuid();
+
+        var employee =
+            CreateExistingEmployee(employeeId);
+
+        employee.Role =
+            EmployeeRole.Manager;
+
+        employee.IsActive =
+            true;
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository
+            {
+                EmployeeForUpdate = employee,
+                HasActiveDirectReportsResult = true
+            };
+
+        var readRepository =
+            new FakeEmployeeReadRepository();
+
+        var handler =
+            new UpdateEmployeeCommandHandler(
+                writeRepository,
+                readRepository);
+
+        var command =
+            CreateValidCommand(
+                employeeId,
+                Guid.NewGuid(),
+                null)
+            with
+            {
+                Role = EmployeeRole.Employee,
+                IsActive = true
+            };
+
+        var exception =
+            await Assert.ThrowsAsync<BusinessRuleException>(
+                () => handler.Handle(
+                    command,
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "A manager with active direct reports cannot be deactivated or assigned another role.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.ActiveManagerExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetManagerIdCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.EmailExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            readRepository.GetByIdCallCount);
+
+        Assert.True(employee.IsActive);
+
+        Assert.Equal(
+            EmployeeRole.Manager,
+            employee.Role);
+
+        Assert.Null(
+            employee.UpdatedAtUtc);
     }
 
     [Fact]
@@ -424,7 +667,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         Assert.Equal(
             0,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             1,
@@ -489,7 +732,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         Assert.Equal(
             0,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             1,
@@ -721,7 +964,11 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         Assert.Equal(
             cancellationToken,
-            writeRepository.ActiveEmployeeExistsCancellationToken);
+            writeRepository.ActiveManagerExistsCancellationToken);
+
+        Assert.Equal(
+            cancellationToken,
+            writeRepository.GetManagerIdCancellationToken);
 
         Assert.Equal(
             cancellationToken,
@@ -804,7 +1051,11 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         public bool DepartmentExistsResult { get; init; } = true;
 
-        public bool ActiveEmployeeExistsResult { get; init; } = true;
+        public bool ActiveManagerExistsResult { get; init; } = true;
+
+        public Func<Guid, Guid?>? ManagerIdResultFactory { get; init; }
+
+        public bool HasActiveDirectReportsResult { get; init; }
 
         public bool EmailExistsResult { get; init; }
 
@@ -814,7 +1065,7 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         public Guid RequestedDepartmentId { get; private set; }
 
-        public Guid RequestedActiveEmployeeId { get; private set; }
+        public Guid RequestedActiveManagerId { get; private set; }
 
         public string? RequestedEmail { get; private set; }
 
@@ -822,9 +1073,13 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
         public int GetForUpdateCallCount { get; private set; }
 
+        public int GetManagerIdCallCount { get; private set; }
+
+        public int HasActiveDirectReportsCallCount { get; private set; }
+
         public int DepartmentExistsCallCount { get; private set; }
 
-        public int ActiveEmployeeExistsCallCount { get; private set; }
+        public int ActiveManagerExistsCallCount { get; private set; }
 
         public int EmailExistsCallCount { get; private set; }
 
@@ -844,7 +1099,19 @@ public sealed class UpdateEmployeeCommandHandlerTests
             private set;
         }
 
-        public CancellationToken ActiveEmployeeExistsCancellationToken
+        public CancellationToken ActiveManagerExistsCancellationToken
+        {
+            get;
+            private set;
+        }
+
+        public CancellationToken GetManagerIdCancellationToken
+        {
+            get;
+            private set;
+        }
+
+        public CancellationToken HasActiveDirectReportsCancellationToken
         {
             get;
             private set;
@@ -888,17 +1155,43 @@ public sealed class UpdateEmployeeCommandHandlerTests
                 DepartmentExistsResult);
         }
 
-        public Task<bool> ActiveEmployeeExistsAsync(
-            Guid employeeId,
-            CancellationToken cancellationToken = default)
+        public Task<bool> ActiveManagerExistsAsync(
+           Guid managerId,
+           CancellationToken cancellationToken = default)
         {
-            ActiveEmployeeExistsCallCount++;
-            RequestedActiveEmployeeId = employeeId;
-            ActiveEmployeeExistsCancellationToken =
+            ActiveManagerExistsCallCount++;
+            RequestedActiveManagerId = managerId;
+            ActiveManagerExistsCancellationToken =
                 cancellationToken;
 
             return Task.FromResult(
-                ActiveEmployeeExistsResult);
+                ActiveManagerExistsResult);
+        }
+
+        public Task<Guid?> GetManagerIdAsync(
+            Guid employeeId,
+            CancellationToken cancellationToken = default)
+        {
+            GetManagerIdCallCount++;
+            GetManagerIdCancellationToken =
+                cancellationToken;
+
+            var managerId =
+                ManagerIdResultFactory?.Invoke(employeeId);
+
+            return Task.FromResult(managerId);
+        }
+
+        public Task<bool> HasActiveDirectReportsAsync(
+            Guid managerId,
+            CancellationToken cancellationToken = default)
+        {
+            HasActiveDirectReportsCallCount++;
+            HasActiveDirectReportsCancellationToken =
+                cancellationToken;
+
+            return Task.FromResult(
+                HasActiveDirectReportsResult);
         }
 
         public Task<bool> EmailExistsAsync(

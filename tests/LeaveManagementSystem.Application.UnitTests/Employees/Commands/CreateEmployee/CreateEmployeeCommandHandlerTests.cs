@@ -81,7 +81,7 @@ public sealed class CreateEmployeeCommandHandlerTests
 
         Assert.Equal(
             managerId,
-            writeRepository.RequestedActiveEmployeeId);
+            writeRepository.RequestedActiveManagerId);
 
         Assert.Equal(
             "irem.ozturk@example.com",
@@ -96,7 +96,7 @@ public sealed class CreateEmployeeCommandHandlerTests
 
         Assert.Equal(
             1,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             1,
@@ -161,7 +161,7 @@ public sealed class CreateEmployeeCommandHandlerTests
 
         Assert.Equal(
             0,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             1,
@@ -215,7 +215,7 @@ public sealed class CreateEmployeeCommandHandlerTests
 
         Assert.Equal(
             0,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             0,
@@ -235,12 +235,12 @@ public sealed class CreateEmployeeCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ManagerDoesNotExistOrIsInactive_ThrowsAndDoesNotPersist()
+    public async Task Handle_ManagerIsNotAnActiveManager_ThrowsAndDoesNotPersist()
     {
         var writeRepository =
             new FakeEmployeeWriteRepository
             {
-                ActiveEmployeeExistsResult = false
+                ActiveManagerExistsResult = false
             };
 
         var readRepository =
@@ -261,7 +261,7 @@ public sealed class CreateEmployeeCommandHandlerTests
                     CancellationToken.None));
 
         Assert.Equal(
-            "Manager does not exist or is not active.",
+            "Manager does not exist, is not active, or does not have the Manager role.",
             exception.Message);
 
         Assert.Equal(
@@ -270,7 +270,7 @@ public sealed class CreateEmployeeCommandHandlerTests
 
         Assert.Equal(
             1,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             0,
@@ -324,7 +324,7 @@ public sealed class CreateEmployeeCommandHandlerTests
 
         Assert.Equal(
             0,
-            writeRepository.ActiveEmployeeExistsCallCount);
+            writeRepository.ActiveManagerExistsCallCount);
 
         Assert.Equal(
             1,
@@ -430,7 +430,7 @@ public sealed class CreateEmployeeCommandHandlerTests
     {
         public bool DepartmentExistsResult { get; init; } = true;
 
-        public bool ActiveEmployeeExistsResult { get; init; } = true;
+        public bool ActiveManagerExistsResult { get; init; } = true;
 
         public bool EmailExistsResult { get; init; }
 
@@ -438,7 +438,7 @@ public sealed class CreateEmployeeCommandHandlerTests
 
         public Guid RequestedDepartmentId { get; private set; }
 
-        public Guid RequestedActiveEmployeeId { get; private set; }
+        public Guid RequestedActiveManagerId { get; private set; }
 
         public string? RequestedEmail { get; private set; }
 
@@ -446,7 +446,7 @@ public sealed class CreateEmployeeCommandHandlerTests
 
         public int DepartmentExistsCallCount { get; private set; }
 
-        public int ActiveEmployeeExistsCallCount { get; private set; }
+        public int ActiveManagerExistsCallCount { get; private set; }
 
         public int EmailExistsCallCount { get; private set; }
 
@@ -472,15 +472,31 @@ public sealed class CreateEmployeeCommandHandlerTests
                 DepartmentExistsResult);
         }
 
-        public Task<bool> ActiveEmployeeExistsAsync(
-            Guid employeeId,
-            CancellationToken cancellationToken = default)
+        public Task<bool> ActiveManagerExistsAsync(
+           Guid managerId,
+           CancellationToken cancellationToken = default)
         {
-            ActiveEmployeeExistsCallCount++;
-            RequestedActiveEmployeeId = employeeId;
+            ActiveManagerExistsCallCount++;
+            RequestedActiveManagerId = managerId;
 
             return Task.FromResult(
-                ActiveEmployeeExistsResult);
+                ActiveManagerExistsResult);
+        }
+
+        public Task<Guid?> GetManagerIdAsync(
+           Guid employeeId,
+           CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "GetManagerIdAsync should not be called during employee creation.");
+        }
+
+        public Task<bool> HasActiveDirectReportsAsync(
+            Guid managerId,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "HasActiveDirectReportsAsync should not be called during employee creation.");
         }
 
         public Task<bool> EmailExistsAsync(

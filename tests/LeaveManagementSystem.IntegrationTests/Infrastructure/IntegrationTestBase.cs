@@ -87,7 +87,8 @@ public abstract class IntegrationTestBase
     }
 
     protected async Task<Guid> CreateEmployeeViaApiAsync(
-        Guid departmentId)
+        Guid departmentId,
+        EmployeeRole role = EmployeeRole.Employee)
     {
         var suffix =
             Guid.NewGuid().ToString("N");
@@ -100,7 +101,7 @@ public abstract class IntegrationTestBase
                 $"integration.leave.employee.{suffix}@example.com",
             departmentId,
             managerId = (Guid?)null,
-            role = EmployeeRole.Employee
+            role
         };
 
         var createResponse =
@@ -187,9 +188,9 @@ public abstract class IntegrationTestBase
     }
 
     private protected static void AssertBusinessRuleProblemDetails(
-    ProblemDetailsResponse problem,
-    string expectedDetail,
-    string expectedInstance)
+        ProblemDetailsResponse problem,
+        string expectedDetail,
+        string expectedInstance)
     {
         Assert.Equal(
             400,

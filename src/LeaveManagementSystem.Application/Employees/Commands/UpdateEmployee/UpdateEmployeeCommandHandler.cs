@@ -1,6 +1,7 @@
 ﻿using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.Employees.Dtos;
+using LeaveManagementSystem.Domain.Enums;
 using MediatR;
 
 namespace LeaveManagementSystem.Application.Employees.Commands.UpdateEmployee;
@@ -51,14 +52,52 @@ public sealed class UpdateEmployeeCommandHandler(
         if (request.ManagerId.HasValue)
         {
             var managerExists =
-                await employeeWriteRepository.ActiveEmployeeExistsAsync(
+                await employeeWriteRepository.ActiveManagerExistsAsync(
                     request.ManagerId.Value,
                     cancellationToken);
 
             if (!managerExists)
             {
                 throw new BusinessRuleException(
-                    "Manager does not exist or is not active.");
+                    "Manager does not exist, is not active, or does not have the Manager role.");
+            }
+        }
+
+        var reactivatesEmployee =
+          !employee.IsActive
+          && request.IsActive;
+
+        if (request.ManagerId.HasValue
+            && (request.ManagerId != employee.ManagerId
+                || reactivatesEmployee))
+        {
+            await EnsureManagerHierarchyDoesNotContainCycleAsync(
+                employee.Id,
+                request.ManagerId.Value,
+                employeeWriteRepository,
+                cancellationToken);
+        }
+
+        var demotesManager =
+            employee.Role == EmployeeRole.Manager
+            && request.Role != EmployeeRole.Manager;
+
+        var deactivatesManager =
+            employee.Role == EmployeeRole.Manager
+            && employee.IsActive
+            && !request.IsActive;
+
+        if (demotesManager || deactivatesManager)
+        {
+            var hasActiveDirectReports =
+                await employeeWriteRepository.HasActiveDirectReportsAsync(
+                    employee.Id,
+                    cancellationToken);
+
+            if (hasActiveDirectReports)
+            {
+                throw new BusinessRuleException(
+                    "A manager with active direct reports cannot be deactivated or assigned another role.");
             }
         }
 
@@ -91,5 +130,33 @@ public sealed class UpdateEmployeeCommandHandler(
             cancellationToken)
             ?? throw new InvalidOperationException(
                 "Employee was updated but could not be loaded.");
+    }
+
+    private static async Task EnsureManagerHierarchyDoesNotContainCycleAsync(
+       Guid employeeId,
+       Guid proposedManagerId,
+       IEmployeeWriteRepository employeeWriteRepository,
+       CancellationToken cancellationToken)
+    {
+        var visitedEmployeeIds = new HashSet<Guid>
+    {
+        employeeId
+    };
+
+        Guid? currentEmployeeId = proposedManagerId;
+
+        while (currentEmployeeId.HasValue)
+        {
+            if (!visitedEmployeeIds.Add(currentEmployeeId.Value))
+            {
+                throw new BusinessRuleException(
+                    "Manager hierarchy cannot contain a cycle.");
+            }
+
+            currentEmployeeId =
+                await employeeWriteRepository.GetManagerIdAsync(
+                    currentEmployeeId.Value,
+                    cancellationToken);
+        }
     }
 }

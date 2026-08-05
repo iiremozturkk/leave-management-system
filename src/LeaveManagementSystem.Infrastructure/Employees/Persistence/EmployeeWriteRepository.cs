@@ -1,5 +1,6 @@
 ﻿using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Domain.Entities;
+using LeaveManagementSystem.Domain.Enums;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,13 +28,36 @@ public sealed class EmployeeWriteRepository(
             cancellationToken);
     }
 
-    public Task<bool> ActiveEmployeeExistsAsync(
-        Guid employeeId,
+    public Task<bool> ActiveManagerExistsAsync(
+        Guid managerId,
         CancellationToken cancellationToken = default)
     {
         return dbContext.Employees.AnyAsync(
             employee =>
-                employee.Id == employeeId
+                employee.Id == managerId
+                && employee.IsActive
+                && employee.Role == EmployeeRole.Manager,
+            cancellationToken);
+    }
+
+    public Task<Guid?> GetManagerIdAsync(
+        Guid employeeId,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.Employees
+            .AsNoTracking()
+            .Where(employee => employee.Id == employeeId)
+            .Select(employee => employee.ManagerId)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<bool> HasActiveDirectReportsAsync(
+        Guid managerId,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.Employees.AnyAsync(
+            employee =>
+                employee.ManagerId == managerId
                 && employee.IsActive,
             cancellationToken);
     }

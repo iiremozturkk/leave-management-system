@@ -182,7 +182,7 @@ public sealed class CreateEmployeeEndpointTests(
 
             AssertBusinessRuleProblemDetails(
                 problem!,
-                "Manager does not exist or is not active.",
+                "Manager does not exist, is not active, or does not have the Manager role.",
                 "/api/employees");
         }
         finally
@@ -190,6 +190,87 @@ public sealed class CreateEmployeeEndpointTests(
             await CleanupAsync(
                 leaveRequestId: null,
                 employeeId: unexpectedEmployeeId,
+                departmentId: departmentId);
+        }
+    }
+
+    [Fact]
+    public async Task CreateEmployee_ActiveEmployeeIsNotManager_ReturnsBusinessRuleProblemDetails()
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var departmentId =
+            await CreateDepartmentAsync();
+
+        Guid? activeEmployeeId = null;
+        Guid? unexpectedEmployeeId = null;
+
+        try
+        {
+            activeEmployeeId =
+                await CreateEmployeeViaApiAsync(
+                    departmentId);
+
+            var request = new
+            {
+                firstName = "Managed",
+                lastName = "Employee",
+                email =
+                    $"non.manager.assignment.{Guid.NewGuid():N}@example.com",
+                departmentId,
+                managerId = activeEmployeeId,
+                role = EmployeeRole.Employee
+            };
+
+            using var response =
+                await _client.PostAsJsonAsync(
+                    "/api/employees",
+                    request);
+
+            if (response.StatusCode ==
+                HttpStatusCode.Created)
+            {
+                var unexpectedEmployee =
+                    await response.Content
+                        .ReadFromJsonAsync<EmployeeResponse>(
+                            JsonOptions);
+
+                unexpectedEmployeeId =
+                    unexpectedEmployee?.Id;
+            }
+
+            Assert.Equal(
+                HttpStatusCode.BadRequest,
+                response.StatusCode);
+
+            Assert.Equal(
+                "application/problem+json",
+                response.Content.Headers
+                    .ContentType?.MediaType);
+
+            var problem =
+                await response.Content
+                    .ReadFromJsonAsync<ProblemDetailsResponse>(
+                        JsonOptions);
+
+            Assert.NotNull(
+                problem);
+
+            AssertBusinessRuleProblemDetails(
+                problem!,
+                "Manager does not exist, is not active, or does not have the Manager role.",
+                "/api/employees");
+        }
+        finally
+        {
+            await CleanupAsync(
+                leaveRequestId: null,
+                employeeId: unexpectedEmployeeId,
+                departmentId: null);
+
+            await CleanupAsync(
+                leaveRequestId: null,
+                employeeId: activeEmployeeId,
                 departmentId: departmentId);
         }
     }

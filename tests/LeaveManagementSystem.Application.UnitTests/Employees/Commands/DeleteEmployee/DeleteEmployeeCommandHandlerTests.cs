@@ -1,5 +1,6 @@
 ﻿using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.Employees.Commands.DeleteEmployee;
+using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Domain.Entities;
 using LeaveManagementSystem.Domain.Enums;
 using Xunit;
@@ -55,12 +56,140 @@ public sealed class DeleteEmployeeCommandHandlerTests
             writeRepository.RequestedEmployeeId);
 
         Assert.Equal(
+             1,
+             writeRepository.GetForUpdateCallCount);
+
+        Assert.Equal(
+            employeeId,
+            writeRepository.RequestedDirectReportsEmployeeId);
+
+        Assert.Equal(
+            1,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            1,
+            writeRepository.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_EmployeeHasActiveDirectReports_ThrowsAndDoesNotPersist()
+    {
+        var employeeId = Guid.NewGuid();
+
+        var employee =
+            CreateExistingEmployee(employeeId);
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository
+            {
+                EmployeeForUpdate = employee,
+                HasActiveDirectReportsResult = true
+            };
+
+        var handler =
+            new DeleteEmployeeCommandHandler(
+                writeRepository);
+
+        var command =
+            new DeleteEmployeeCommand(employeeId);
+
+        var exception =
+            await Assert.ThrowsAsync<BusinessRuleException>(
+                () => handler.Handle(
+                    command,
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "An employee with active direct reports cannot be deactivated.",
+            exception.Message);
+
+        Assert.True(
+            employee.IsActive);
+
+        Assert.Null(
+            employee.UpdatedAtUtc);
+
+        Assert.Equal(
+            employeeId,
+            writeRepository.RequestedDirectReportsEmployeeId);
+
+        Assert.Equal(
             1,
             writeRepository.GetForUpdateCallCount);
 
         Assert.Equal(
             1,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
             writeRepository.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_EmployeeIsAlreadyInactive_ReturnsTrueWithoutPersisting()
+    {
+        var employeeId = Guid.NewGuid();
+
+        var employee =
+            CreateExistingEmployee(employeeId);
+
+        employee.IsActive = false;
+
+        var originalUpdatedAtUtc =
+            new DateTime(
+                2026,
+                1,
+                15,
+                12,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        employee.UpdatedAtUtc =
+            originalUpdatedAtUtc;
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository
+            {
+                EmployeeForUpdate = employee
+            };
+
+        var handler =
+            new DeleteEmployeeCommandHandler(
+                writeRepository);
+
+        var command =
+            new DeleteEmployeeCommand(employeeId);
+
+        var result =
+            await handler.Handle(
+                command,
+                CancellationToken.None);
+
+        Assert.True(result);
+
+        Assert.False(employee.IsActive);
+
+        Assert.Equal(
+            originalUpdatedAtUtc,
+            employee.UpdatedAtUtc);
+
+        Assert.Equal(
+            1,
+            writeRepository.GetForUpdateCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.HasActiveDirectReportsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Null(
+            writeRepository.RequestedDirectReportsEmployeeId);
     }
 
     [Fact]
@@ -94,6 +223,10 @@ public sealed class DeleteEmployeeCommandHandlerTests
         Assert.Equal(
             1,
             writeRepository.GetForUpdateCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.HasActiveDirectReportsCallCount);
 
         Assert.Equal(
             0,
@@ -135,6 +268,10 @@ public sealed class DeleteEmployeeCommandHandlerTests
 
         Assert.Equal(
             cancellationToken,
+            writeRepository.HasActiveDirectReportsCancellationToken);
+
+        Assert.Equal(
+            cancellationToken,
             writeRepository.SaveChangesCancellationToken);
     }
 
@@ -161,13 +298,33 @@ public sealed class DeleteEmployeeCommandHandlerTests
     {
         public Employee? EmployeeForUpdate { get; init; }
 
+        public bool HasActiveDirectReportsResult { get; init; }
+
         public Guid RequestedEmployeeId { get; private set; }
 
+        public Guid? RequestedDirectReportsEmployeeId
+        {
+            get;
+            private set;
+        }
+
         public int GetForUpdateCallCount { get; private set; }
+
+        public int HasActiveDirectReportsCallCount
+        {
+            get;
+            private set;
+        }
 
         public int SaveChangesCallCount { get; private set; }
 
         public CancellationToken GetForUpdateCancellationToken
+        {
+            get;
+            private set;
+        }
+
+        public CancellationToken HasActiveDirectReportsCancellationToken
         {
             get;
             private set;
@@ -197,15 +354,38 @@ public sealed class DeleteEmployeeCommandHandlerTests
             CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException(
-                "Unexpected repository call.");
+                "DepartmentExistsAsync should not be called during employee deletion.");
         }
 
-        public Task<bool> ActiveEmployeeExistsAsync(
+        public Task<bool> ActiveManagerExistsAsync(
+            Guid managerId,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "ActiveManagerExistsAsync should not be called during employee deletion.");
+        }
+
+        public Task<Guid?> GetManagerIdAsync(
             Guid employeeId,
             CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException(
-                "Unexpected repository call.");
+                "GetManagerIdAsync should not be called during employee deletion.");
+        }
+
+        public Task<bool> HasActiveDirectReportsAsync(
+            Guid managerId,
+            CancellationToken cancellationToken = default)
+        {
+            HasActiveDirectReportsCallCount++;
+            RequestedDirectReportsEmployeeId =
+                managerId;
+
+            HasActiveDirectReportsCancellationToken =
+                cancellationToken;
+
+            return Task.FromResult(
+                HasActiveDirectReportsResult);
         }
 
         public Task<bool> EmailExistsAsync(
@@ -214,14 +394,14 @@ public sealed class DeleteEmployeeCommandHandlerTests
             CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException(
-                "Unexpected repository call.");
+                "EmailExistsAsync should not be called during employee deletion.");
         }
 
         public void Add(
             Employee employee)
         {
             throw new InvalidOperationException(
-                "Unexpected repository call.");
+                "Add should not be called during employee deletion.");
         }
 
         public Task SaveChangesAsync(

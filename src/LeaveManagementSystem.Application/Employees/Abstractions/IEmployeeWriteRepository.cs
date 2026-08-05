@@ -12,8 +12,16 @@ public interface IEmployeeWriteRepository
         Guid departmentId,
         CancellationToken cancellationToken = default);
 
-    Task<bool> ActiveEmployeeExistsAsync(
+    Task<bool> ActiveManagerExistsAsync(
+        Guid managerId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid?> GetManagerIdAsync(
         Guid employeeId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> HasActiveDirectReportsAsync(
+        Guid managerId,
         CancellationToken cancellationToken = default);
 
     Task<bool> EmailExistsAsync(

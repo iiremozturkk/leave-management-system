@@ -275,7 +275,7 @@ public sealed class UpdateEmployeeEndpointTests(
 
             AssertBusinessRuleProblemDetails(
                 problem!,
-                "Manager does not exist or is not active.",
+                "Manager does not exist, is not active, or does not have the Manager role.",
                 $"/api/employees/{employeeId}");
 
             using var getAfterResponse =
@@ -705,7 +705,8 @@ public sealed class UpdateEmployeeEndpointTests(
             // Create an active employee to be assigned as the manager.
             managerId =
                 await CreateEmployeeViaApiAsync(
-                    departmentId);
+                    departmentId,
+                    EmployeeRole.Manager);
 
             employeeId =
                 await CreateEmployeeViaApiAsync(
@@ -922,8 +923,9 @@ public sealed class UpdateEmployeeEndpointTests(
         try
         {
             managerId =
-                await CreateEmployeeViaApiAsync(
-                    departmentId);
+                 await CreateEmployeeViaApiAsync(
+                     departmentId,
+                     EmployeeRole.Manager);
 
             employeeId =
                 await CreateEmployeeViaApiAsync(
@@ -1014,7 +1016,7 @@ public sealed class UpdateEmployeeEndpointTests(
 
             AssertBusinessRuleProblemDetails(
                 problem!,
-                "Manager does not exist or is not active.",
+                "Manager does not exist, is not active, or does not have the Manager role.",
                 $"/api/employees/{employeeId}");
 
             using var getAfterResponse =

@@ -1,4 +1,5 @@
-﻿using LeaveManagementSystem.Application.Employees.Abstractions;
+﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.Employees.Abstractions;
 using MediatR;
 
 namespace LeaveManagementSystem.Application.Employees.Commands.DeleteEmployee;
@@ -19,6 +20,22 @@ public sealed class DeleteEmployeeCommandHandler(
         if (employee is null)
         {
             return false;
+        }
+
+        if (!employee.IsActive)
+        {
+            return true;
+        }
+
+        var hasActiveDirectReports =
+            await employeeWriteRepository.HasActiveDirectReportsAsync(
+                employee.Id,
+                cancellationToken);
+
+        if (hasActiveDirectReports)
+        {
+            throw new BusinessRuleException(
+                "An employee with active direct reports cannot be deactivated.");
         }
 
         employee.IsActive = false;
