@@ -1,6 +1,6 @@
-﻿using LeaveManagementSystem.Application.Common.Exceptions;
+﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.Employees.Abstractions;
-using LeaveManagementSystem.Application.Authentication.Abstractions;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Domain.Enums;
 using MediatR;
@@ -10,7 +10,9 @@ namespace LeaveManagementSystem.Application.Employees.Commands.UpdateEmployee;
 public sealed class UpdateEmployeeCommandHandler(
     ICurrentUserAccessService currentUserAccessService,
     IEmployeeWriteRepository employeeWriteRepository,
-    IEmployeeReadRepository employeeReadRepository)
+    IEmployeeReadRepository employeeReadRepository,
+    IEmployeeAdministrationTransactionManager
+        employeeAdministrationTransactionManager)
     : IRequestHandler<UpdateEmployeeCommand, EmployeeDto?>
 {
     public async Task<EmployeeDto?> Handle(
@@ -18,6 +20,10 @@ public sealed class UpdateEmployeeCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        await using var transaction =
+            await employeeAdministrationTransactionManager.BeginAsync(
+                cancellationToken);
 
         var currentUserAccess =
             await currentUserAccessService.GetAsync(
@@ -31,7 +37,7 @@ public sealed class UpdateEmployeeCommandHandler(
         }
 
         var employee =
-                await employeeWriteRepository.GetForUpdateAsync(
+            await employeeWriteRepository.GetForUpdateAsync(
                 request.Id,
                 cancellationToken);
 
@@ -40,11 +46,16 @@ public sealed class UpdateEmployeeCommandHandler(
             return null;
         }
 
-        var firstName = request.FirstName.Trim();
-        var lastName = request.LastName.Trim();
-        var email = request.Email
-            .Trim()
-            .ToLowerInvariant();
+        var firstName =
+            request.FirstName.Trim();
+
+        var lastName =
+            request.LastName.Trim();
+
+        var email =
+            request.Email
+                .Trim()
+                .ToLowerInvariant();
 
         var departmentExists =
             await employeeWriteRepository.DepartmentExistsAsync(
@@ -79,8 +90,8 @@ public sealed class UpdateEmployeeCommandHandler(
         }
 
         var reactivatesEmployee =
-          !employee.IsActive
-          && request.IsActive;
+            !employee.IsActive
+            && request.IsActive;
 
         if (request.ManagerId.HasValue
             && (request.ManagerId != employee.ManagerId
@@ -105,14 +116,36 @@ public sealed class UpdateEmployeeCommandHandler(
         if (demotesManager || deactivatesManager)
         {
             var hasActiveDirectReports =
-                await employeeWriteRepository.HasActiveDirectReportsAsync(
-                    employee.Id,
-                    cancellationToken);
+                await employeeWriteRepository
+                    .HasActiveDirectReportsAsync(
+                        employee.Id,
+                        cancellationToken);
 
             if (hasActiveDirectReports)
             {
                 throw new BusinessRuleException(
                     "A manager with active direct reports cannot be deactivated or assigned another role.");
+            }
+        }
+
+        var removesActiveHrAdministrator =
+            employee.Role == EmployeeRole.HR
+            && employee.IsActive
+            && (request.Role != EmployeeRole.HR
+                || !request.IsActive);
+
+        if (removesActiveHrAdministrator)
+        {
+            var isSoleActiveHrAdministrator =
+                await employeeWriteRepository
+                    .IsSoleActiveHrAdministratorAsync(
+                        employee.Id,
+                        cancellationToken);
+
+            if (isSoleActiveHrAdministrator)
+            {
+                throw new BusinessRuleException(
+                    "The last active HR administrator cannot be deactivated or assigned another role.");
             }
         }
 
@@ -140,29 +173,37 @@ public sealed class UpdateEmployeeCommandHandler(
         await employeeWriteRepository.SaveChangesAsync(
             cancellationToken);
 
-        return await employeeReadRepository.GetByIdAsync(
-            employee.Id,
-            cancellationToken)
+        var updatedEmployee =
+            await employeeReadRepository.GetByIdAsync(
+                employee.Id,
+                cancellationToken)
             ?? throw new InvalidOperationException(
                 "Employee was updated but could not be loaded.");
+
+        await transaction.CommitAsync(
+            cancellationToken);
+
+        return updatedEmployee;
     }
 
     private static async Task EnsureManagerHierarchyDoesNotContainCycleAsync(
-       Guid employeeId,
-       Guid proposedManagerId,
-       IEmployeeWriteRepository employeeWriteRepository,
-       CancellationToken cancellationToken)
+        Guid employeeId,
+        Guid proposedManagerId,
+        IEmployeeWriteRepository employeeWriteRepository,
+        CancellationToken cancellationToken)
     {
         var visitedEmployeeIds = new HashSet<Guid>
-    {
-        employeeId
-    };
+        {
+            employeeId
+        };
 
-        Guid? currentEmployeeId = proposedManagerId;
+        Guid? currentEmployeeId =
+            proposedManagerId;
 
         while (currentEmployeeId.HasValue)
         {
-            if (!visitedEmployeeIds.Add(currentEmployeeId.Value))
+            if (!visitedEmployeeIds.Add(
+                    currentEmployeeId.Value))
             {
                 throw new BusinessRuleException(
                     "Manager hierarchy cannot contain a cycle.");

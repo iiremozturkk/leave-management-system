@@ -24,6 +24,10 @@ public interface IEmployeeWriteRepository
         Guid managerId,
         CancellationToken cancellationToken = default);
 
+    Task<bool> IsSoleActiveHrAdministratorAsync(
+        Guid employeeId,
+        CancellationToken cancellationToken = default);
+
     Task<bool> EmailExistsAsync(
         string email,
         Guid? excludedEmployeeId,

@@ -1122,6 +1122,100 @@ public sealed class UpdateEmployeeCommandHandlerTests
     }
 
     [Theory]
+    [InlineData(EmployeeRole.Employee, true)]
+    [InlineData(EmployeeRole.HR, false)]
+    public async Task Handle_RemovingLastActiveHrAdministrator_ThrowsAndDoesNotPersist(
+    EmployeeRole requestedRole,
+    bool requestedIsActive)
+    {
+        var employeeId =
+            Guid.NewGuid();
+
+        var employee =
+            CreateExistingEmployee(
+                employeeId);
+
+        employee.Role =
+            EmployeeRole.HR;
+
+        employee.IsActive =
+            true;
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository
+            {
+                EmployeeForUpdate =
+                    employee,
+
+                IsSoleActiveHrAdministratorResult =
+                    true
+            };
+
+        var readRepository =
+            new FakeEmployeeReadRepository();
+
+        var transactionManager =
+            new FakeEmployeeAdministrationTransactionManager();
+
+        var handler =
+            CreateHandler(
+                writeRepository,
+                readRepository,
+                transactionManager:
+                    transactionManager);
+
+        var command =
+            CreateValidCommand(
+                employeeId,
+                Guid.NewGuid()) with
+            {
+                Role =
+                    requestedRole,
+
+                IsActive =
+                    requestedIsActive
+            };
+
+        var exception =
+            await Assert.ThrowsAsync<BusinessRuleException>(
+                () => handler.Handle(
+                    command,
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "The last active HR administrator cannot be deactivated or assigned another role.",
+            exception.Message);
+
+        Assert.Equal(
+            EmployeeRole.HR,
+            employee.Role);
+
+        Assert.True(
+            employee.IsActive);
+
+        Assert.Equal(
+            1,
+            writeRepository
+                .IsSoleActiveHrAdministratorCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.EmailExistsCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            readRepository.GetByIdCallCount);
+
+        Assert.Equal(
+            0,
+            transactionManager.Transaction.CommitCallCount);
+    }
+
+    [Theory]
     [InlineData(EmployeeRole.Employee)]
     [InlineData(EmployeeRole.Manager)]
     public async Task Handle_CurrentUserIsNotHr_ThrowsForbiddenBeforeRepositoryCalls(
@@ -1194,13 +1288,17 @@ public sealed class UpdateEmployeeCommandHandlerTests
     private static UpdateEmployeeCommandHandler CreateHandler(
         FakeEmployeeWriteRepository writeRepository,
         FakeEmployeeReadRepository readRepository,
-        FakeCurrentUserAccessService? currentUserAccessService = null)
+        FakeCurrentUserAccessService? currentUserAccessService = null,
+        FakeEmployeeAdministrationTransactionManager?
+        transactionManager = null)
     {
         return new UpdateEmployeeCommandHandler(
             currentUserAccessService
                 ?? CreateHrCurrentUserAccessService(),
             writeRepository,
-            readRepository);
+            readRepository,
+            transactionManager
+                ?? new FakeEmployeeAdministrationTransactionManager());
     }
 
     private static FakeCurrentUserAccessService
@@ -1365,6 +1463,18 @@ public sealed class UpdateEmployeeCommandHandlerTests
             private set;
         }
 
+        public bool IsSoleActiveHrAdministratorResult
+        {
+            get;
+            init;
+        }
+
+        public int IsSoleActiveHrAdministratorCallCount
+        {
+            get;
+            private set;
+        }
+
         public CancellationToken ActiveManagerExistsCancellationToken
         {
             get;
@@ -1419,6 +1529,16 @@ public sealed class UpdateEmployeeCommandHandlerTests
 
             return Task.FromResult(
                 DepartmentExistsResult);
+        }
+
+        public Task<bool> IsSoleActiveHrAdministratorAsync(
+            Guid employeeId,
+            CancellationToken cancellationToken = default)
+        {
+            IsSoleActiveHrAdministratorCallCount++;
+
+            return Task.FromResult(
+                IsSoleActiveHrAdministratorResult);
         }
 
         public Task<bool> ActiveManagerExistsAsync(
@@ -1527,6 +1647,44 @@ public sealed class UpdateEmployeeCommandHandlerTests
             var result = ResultFactory?.Invoke(id);
 
             return Task.FromResult(result);
+        }
+    }
+
+    private sealed class FakeEmployeeAdministrationTransactionManager
+        : IEmployeeAdministrationTransactionManager
+    {
+        public FakeEmployeeAdministrationTransaction Transaction
+        {
+            get;
+        } = new();
+
+        public Task<IEmployeeAdministrationTransaction> BeginAsync(
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IEmployeeAdministrationTransaction>(
+                Transaction);
+        }
+    }
+
+    private sealed class FakeEmployeeAdministrationTransaction
+        : IEmployeeAdministrationTransaction
+    {
+        public int CommitCallCount
+        {
+            get;
+            private set;
+        }
+
+        public Task CommitAsync(
+            CancellationToken cancellationToken = default)
+        {
+            CommitCallCount++;
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            return ValueTask.CompletedTask;
         }
     }
 }

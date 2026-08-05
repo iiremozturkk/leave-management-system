@@ -62,6 +62,29 @@ public sealed class EmployeeWriteRepository(
             cancellationToken);
     }
 
+    public async Task<bool> IsSoleActiveHrAdministratorAsync(
+        Guid employeeId,
+        CancellationToken cancellationToken = default)
+    {
+        var activeHrEmployeeIds =
+            await dbContext.UserAccounts
+                .Where(
+                    userAccount =>
+                        userAccount.IsActive
+                        && userAccount.Employee.IsActive
+                        && userAccount.Employee.Role ==
+                            EmployeeRole.HR)
+                .Select(
+                    userAccount =>
+                        userAccount.EmployeeId)
+                .Take(2)
+                .ToListAsync(
+                    cancellationToken);
+
+        return activeHrEmployeeIds.Count == 1
+            && activeHrEmployeeIds[0] == employeeId;
+    }
+
     public Task<bool> EmailExistsAsync(
         string email,
         Guid? excludedEmployeeId,

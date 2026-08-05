@@ -321,6 +321,70 @@ public sealed class DeleteEmployeeCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_LastActiveHrAdministrator_ThrowsAndDoesNotPersist()
+    {
+        var employeeId =
+            Guid.NewGuid();
+
+        var employee =
+            CreateExistingEmployee(
+                employeeId);
+
+        employee.Role =
+            EmployeeRole.HR;
+
+        var writeRepository =
+            new FakeEmployeeWriteRepository
+            {
+                EmployeeForUpdate =
+                    employee,
+
+                IsSoleActiveHrAdministratorResult =
+                    true
+            };
+
+        var transactionManager =
+            new FakeEmployeeAdministrationTransactionManager();
+
+        var handler =
+            CreateHandler(
+                writeRepository,
+                transactionManager:
+                    transactionManager);
+
+        var exception =
+            await Assert.ThrowsAsync<BusinessRuleException>(
+                () => handler.Handle(
+                    new DeleteEmployeeCommand(
+                        employeeId),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "The last active HR administrator cannot be deactivated.",
+            exception.Message);
+
+        Assert.True(
+            employee.IsActive);
+
+        Assert.Equal(
+            EmployeeRole.HR,
+            employee.Role);
+
+        Assert.Equal(
+            1,
+            writeRepository
+                .IsSoleActiveHrAdministratorCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            transactionManager.Transaction.CommitCallCount);
+    }
+
+    [Fact]
     public async Task Handle_CurrentUserAccessMissing_ThrowsForbiddenBeforeRepositoryCalls()
     {
         var currentUserAccessService =
@@ -411,12 +475,16 @@ public sealed class DeleteEmployeeCommandHandlerTests
 
     private static DeleteEmployeeCommandHandler CreateHandler(
         FakeEmployeeWriteRepository writeRepository,
-        FakeCurrentUserAccessService? currentUserAccessService = null)
+        FakeCurrentUserAccessService? currentUserAccessService = null,
+        FakeEmployeeAdministrationTransactionManager?
+        transactionManager = null)
     {
         return new DeleteEmployeeCommandHandler(
             currentUserAccessService
                 ?? CreateHrCurrentUserAccessService(),
-            writeRepository);
+            writeRepository,
+            transactionManager
+                ?? new FakeEmployeeAdministrationTransactionManager());
     }
 
     private static FakeCurrentUserAccessService
@@ -526,6 +594,18 @@ public sealed class DeleteEmployeeCommandHandlerTests
             private set;
         }
 
+        public bool IsSoleActiveHrAdministratorResult
+        {
+            get;
+            init;
+        }
+
+        public int IsSoleActiveHrAdministratorCallCount
+        {
+            get;
+            private set;
+        }
+
         public Task<Employee?> GetForUpdateAsync(
             Guid id,
             CancellationToken cancellationToken = default)
@@ -555,6 +635,15 @@ public sealed class DeleteEmployeeCommandHandlerTests
                 "ActiveManagerExistsAsync should not be called during employee deletion.");
         }
 
+        public Task<bool> IsSoleActiveHrAdministratorAsync(
+            Guid employeeId,
+            CancellationToken cancellationToken = default)
+        {
+            IsSoleActiveHrAdministratorCallCount++;
+
+            return Task.FromResult(
+                IsSoleActiveHrAdministratorResult);
+        }
         public Task<Guid?> GetManagerIdAsync(
             Guid employeeId,
             CancellationToken cancellationToken = default)
@@ -602,6 +691,44 @@ public sealed class DeleteEmployeeCommandHandlerTests
                 cancellationToken;
 
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeEmployeeAdministrationTransactionManager
+        : IEmployeeAdministrationTransactionManager
+    {
+        public FakeEmployeeAdministrationTransaction Transaction
+        {
+            get;
+        } = new();
+
+        public Task<IEmployeeAdministrationTransaction> BeginAsync(
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IEmployeeAdministrationTransaction>(
+                Transaction);
+        }
+    }
+
+    private sealed class FakeEmployeeAdministrationTransaction
+        : IEmployeeAdministrationTransaction
+    {
+        public int CommitCallCount
+        {
+            get;
+            private set;
+        }
+
+        public Task CommitAsync(
+            CancellationToken cancellationToken = default)
+        {
+            CommitCallCount++;
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            return ValueTask.CompletedTask;
         }
     }
 }

@@ -8,7 +8,9 @@ namespace LeaveManagementSystem.Application.Employees.Commands.DeleteEmployee;
 
 public sealed class DeleteEmployeeCommandHandler(
     ICurrentUserAccessService currentUserAccessService,
-    IEmployeeWriteRepository employeeWriteRepository)
+    IEmployeeWriteRepository employeeWriteRepository,
+    IEmployeeAdministrationTransactionManager
+        employeeAdministrationTransactionManager)
     : IRequestHandler<DeleteEmployeeCommand, bool>
 {
     public async Task<bool> Handle(
@@ -16,6 +18,10 @@ public sealed class DeleteEmployeeCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        await using var transaction =
+            await employeeAdministrationTransactionManager.BeginAsync(
+                cancellationToken);
 
         var currentUserAccess =
             await currentUserAccessService.GetAsync(
@@ -29,7 +35,7 @@ public sealed class DeleteEmployeeCommandHandler(
         }
 
         var employee =
-                await employeeWriteRepository.GetForUpdateAsync(
+            await employeeWriteRepository.GetForUpdateAsync(
                 request.Id,
                 cancellationToken);
 
@@ -54,10 +60,25 @@ public sealed class DeleteEmployeeCommandHandler(
                 "An employee with active direct reports cannot be deactivated.");
         }
 
+        var isSoleActiveHrAdministrator =
+            await employeeWriteRepository
+                .IsSoleActiveHrAdministratorAsync(
+                    employee.Id,
+                    cancellationToken);
+
+        if (isSoleActiveHrAdministrator)
+        {
+            throw new BusinessRuleException(
+                "The last active HR administrator cannot be deactivated.");
+        }
+
         employee.IsActive = false;
         employee.UpdatedAtUtc = DateTime.UtcNow;
 
         await employeeWriteRepository.SaveChangesAsync(
+            cancellationToken);
+
+        await transaction.CommitAsync(
             cancellationToken);
 
         return true;

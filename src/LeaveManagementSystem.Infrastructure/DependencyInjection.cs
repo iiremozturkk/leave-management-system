@@ -74,6 +74,10 @@ public static class DependencyInjection
             EmployeeWriteRepository>();
 
         services.AddScoped<
+            IEmployeeAdministrationTransactionManager,
+            EmployeeAdministrationTransactionManager>();
+
+        services.AddScoped<
             ILeaveRequestReadRepository,
             LeaveRequestReadRepository>();
 

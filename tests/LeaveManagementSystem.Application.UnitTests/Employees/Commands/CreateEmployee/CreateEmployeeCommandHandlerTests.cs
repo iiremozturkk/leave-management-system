@@ -708,6 +708,14 @@ public sealed class CreateEmployeeCommandHandlerTests
                 DepartmentExistsResult);
         }
 
+        public Task<bool> IsSoleActiveHrAdministratorAsync(
+           Guid employeeId,
+           CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "IsSoleActiveHrAdministratorAsync should not be called during employee creation.");
+        }
+
         public Task<bool> ActiveManagerExistsAsync(
            Guid managerId,
            CancellationToken cancellationToken = default)
