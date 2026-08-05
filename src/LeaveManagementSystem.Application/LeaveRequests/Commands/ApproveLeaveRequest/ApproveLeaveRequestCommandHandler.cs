@@ -1,4 +1,5 @@
-﻿using LeaveManagementSystem.Application.Common.Exceptions;
+﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
@@ -11,7 +12,8 @@ namespace LeaveManagementSystem.Application.LeaveRequests.Commands.ApproveLeaveR
 public sealed class ApproveLeaveRequestCommandHandler(
     ILeaveRequestWriteRepository leaveRequestWriteRepository,
     ILeaveRequestReadRepository leaveRequestReadRepository,
-    IEmployeeReadRepository employeeReadRepository)
+    IEmployeeReadRepository employeeReadRepository,
+    ICurrentUserAccessService currentUserAccessService)
     : IRequestHandler<
         ApproveLeaveRequestCommand,
         LeaveRequestDto?>
@@ -21,6 +23,20 @@ public sealed class ApproveLeaveRequestCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var currentUserAccess =
+            await currentUserAccessService.GetAsync(
+                cancellationToken);
+
+        if (currentUserAccess is null
+            || currentUserAccess.Role != EmployeeRole.Manager)
+        {
+            throw new ForbiddenOperationException(
+                "Only current active managers can review leave requests.");
+        }
+
+        var reviewerEmployeeId =
+            currentUserAccess.EmployeeId;
 
         var leaveRequest =
             await leaveRequestWriteRepository.GetForModificationAsync(
@@ -32,44 +48,16 @@ public sealed class ApproveLeaveRequestCommandHandler(
             return null;
         }
 
-        if (request.ReviewerEmployeeId == Guid.Empty)
-        {
-            throw new InvalidOperationException(
-                "Reviewer employee id cannot be empty.");
-        }
-
         var employee =
             await employeeReadRepository.GetByIdAsync(
                 leaveRequest.EmployeeId,
                 cancellationToken);
 
-        if (employee is null || !employee.IsActive)
+        if (employee is null
+            || !employee.IsActive
+            || employee.ManagerId != reviewerEmployeeId)
         {
-            throw new InvalidOperationException(
-                "Employee does not exist or is not active.");
-        }
-
-        var reviewer =
-            await employeeReadRepository.GetByIdAsync(
-                request.ReviewerEmployeeId,
-                cancellationToken);
-
-        if (reviewer is null || !reviewer.IsActive)
-        {
-            throw new InvalidOperationException(
-                "Reviewer does not exist or is not active.");
-        }
-
-        if (reviewer.Role != EmployeeRole.Manager)
-        {
-            throw new ForbiddenOperationException(
-                "Only managers can review leave requests.");
-        }
-
-        if (employee.ManagerId != request.ReviewerEmployeeId)
-        {
-            throw new ForbiddenOperationException(
-                "Only the employee's direct manager can review this leave request.");
+            return null;
         }
 
         LeaveRequestRules.EnsureSupportedDateRange(
@@ -95,12 +83,13 @@ public sealed class ApproveLeaveRequestCommandHandler(
         foreach (var requestedDaysForYear in requestedDaysByYear)
         {
             var usedDays =
-                await leaveRequestWriteRepository.GetApprovedUsedDaysForYearAsync(
-                    leaveRequest.EmployeeId,
-                    leaveRequest.LeaveTypeId,
-                    requestedDaysForYear.Year,
-                    excludedLeaveRequestId: leaveRequest.Id,
-                    cancellationToken);
+                await leaveRequestWriteRepository
+                    .GetApprovedUsedDaysForYearAsync(
+                        leaveRequest.EmployeeId,
+                        leaveRequest.LeaveTypeId,
+                        requestedDaysForYear.Year,
+                        excludedLeaveRequestId: leaveRequest.Id,
+                        cancellationToken);
 
             var entitledDays =
                 LeaveRequestRules.CalculateEntitledDays(
@@ -123,7 +112,7 @@ public sealed class ApproveLeaveRequestCommandHandler(
         }
 
         leaveRequest.Approve(
-            request.ReviewerEmployeeId,
+            reviewerEmployeeId,
             request.ManagerComment);
 
         await leaveRequestWriteRepository.SaveChangesAsync(

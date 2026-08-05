@@ -5,6 +5,5 @@ namespace LeaveManagementSystem.Application.LeaveRequests.Commands.ApproveLeaveR
 
 public sealed record ApproveLeaveRequestCommand(
     Guid Id,
-    Guid ReviewerEmployeeId,
     string? ManagerComment)
     : IRequest<LeaveRequestDto?>;

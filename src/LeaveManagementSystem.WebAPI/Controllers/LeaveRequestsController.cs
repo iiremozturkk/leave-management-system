@@ -1,5 +1,4 @@
-﻿using LeaveManagementSystem.Application.Common.Exceptions;
-using LeaveManagementSystem.Application.LeaveRequests.Commands.ApproveLeaveRequest;
+﻿using LeaveManagementSystem.Application.LeaveRequests.Commands.ApproveLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.CreateLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.DeleteLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.RejectLeaveRequest;
@@ -8,6 +7,8 @@ using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveBalance;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequestById;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequests;
+using LeaveManagementSystem.WebAPI.Authorization.Policies;
+using Microsoft.AspNetCore.Authorization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -164,6 +165,8 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpPost("{id:guid}/approve")]
+    [Authorize(
+        Policy = AuthorizationPolicyNames.ManagerOnly)]
     [ProducesResponseType(
         typeof(LeaveRequestDto),
         StatusCodes.Status200OK)]
@@ -185,7 +188,6 @@ public sealed class LeaveRequestsController(
                 await sender.Send(
                     new ApproveLeaveRequestCommand(
                         id,
-                        request.ReviewerEmployeeId,
                         request.ManagerComment),
                     cancellationToken);
 
@@ -195,11 +197,6 @@ public sealed class LeaveRequestsController(
             }
 
             return Ok(leaveRequest);
-        }
-        catch (ForbiddenOperationException exception)
-        {
-            return ForbiddenProblem(
-                exception.Message);
         }
         catch (InvalidOperationException exception)
         {
@@ -209,20 +206,22 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpPost("{id:guid}/reject")]
+    [Authorize(
+        Policy = AuthorizationPolicyNames.ManagerOnly)]
     [ProducesResponseType(
-    typeof(LeaveRequestDto),
-    StatusCodes.Status200OK)]
+        typeof(LeaveRequestDto),
+        StatusCodes.Status200OK)]
     [ProducesResponseType(
-    typeof(ProblemDetails),
-    StatusCodes.Status400BadRequest)]
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
     [ProducesResponseType(
-    typeof(ProblemDetails),
-    StatusCodes.Status403Forbidden)]
+        typeof(ProblemDetails),
+        StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveRequestDto>> Reject(
-    Guid id,
-    ReviewLeaveRequestRequest request,
-    CancellationToken cancellationToken)
+        Guid id,
+        ReviewLeaveRequestRequest request,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -230,7 +229,6 @@ public sealed class LeaveRequestsController(
                 await sender.Send(
                     new RejectLeaveRequestCommand(
                         id,
-                        request.ReviewerEmployeeId,
                         request.ManagerComment),
                     cancellationToken);
 
@@ -240,11 +238,6 @@ public sealed class LeaveRequestsController(
             }
 
             return Ok(leaveRequest);
-        }
-        catch (ForbiddenOperationException exception)
-        {
-            return ForbiddenProblem(
-                exception.Message);
         }
         catch (InvalidOperationException exception)
         {
@@ -294,19 +287,5 @@ public sealed class LeaveRequestsController(
             Title = "Invalid leave request.",
             Detail = detail
         });
-    }
-
-    private ObjectResult ForbiddenProblem(
-        string detail)
-    {
-        return StatusCode(
-            StatusCodes.Status403Forbidden,
-            new ProblemDetails
-            {
-                Status = StatusCodes.Status403Forbidden,
-                Title =
-                    "Forbidden leave request operation.",
-                Detail = detail
-            });
     }
 }

@@ -1,4 +1,6 @@
-﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Authentication.Models;
+using LeaveManagementSystem.Application.Common.Exceptions;
 using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.Employees.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
@@ -13,323 +15,348 @@ namespace LeaveManagementSystem.Application.UnitTests.LeaveRequests.Commands.App
 public sealed class ApproveLeaveRequestCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_NullCommand_ThrowsBeforeRepositoryCalls()
+    public async Task Handle_NullCommand_ThrowsBeforeDependencyCalls()
     {
         var callSequence = new List<string>();
-        var writeRepository = new FakeLeaveRequestWriteRepository(callSequence);
-        var employeeReadRepository = new FakeEmployeeReadRepository(callSequence);
-        var leaveRequestReadRepository = new FakeLeaveRequestReadRepository(callSequence);
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository(callSequence);
+        var leaveRequestReadRepository =
+            new FakeLeaveRequestReadRepository(callSequence);
+        var employeeReadRepository =
+            new FakeEmployeeReadRepository(callSequence);
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService(callSequence);
 
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             leaveRequestReadRepository,
-            employeeReadRepository);
+            employeeReadRepository,
+            currentUserAccessService);
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => handler.Handle(null!, CancellationToken.None));
+            () => handler.Handle(
+                null!,
+                CancellationToken.None));
 
-        Assert.Equal(0, writeRepository.GetForModificationCallCount);
+        Assert.Equal(
+            0,
+            currentUserAccessService.CallCount);
+        Assert.Equal(
+            0,
+            writeRepository.GetForModificationCallCount);
+        Assert.Empty(
+            employeeReadRepository.RequestedIds);
+        Assert.Equal(
+            0,
+            leaveRequestReadRepository.GetByIdCallCount);
         Assert.Empty(callSequence);
     }
 
     [Fact]
-    public async Task Handle_LeaveRequestDoesNotExist_ReturnsNullAndStopsProcessing()
+    public async Task Handle_CurrentUserAccessMissing_ThrowsForbiddenBeforeRepositoryCalls()
     {
-        var leaveRequestId = Guid.NewGuid();
         var callSequence = new List<string>();
-
-        var writeRepository = new FakeLeaveRequestWriteRepository(callSequence)
-        {
-            LeaveRequestResult = null
-        };
-
-        var handler = new ApproveLeaveRequestCommandHandler(
-            writeRepository,
-            new FakeLeaveRequestReadRepository(callSequence),
-            new FakeEmployeeReadRepository(callSequence));
-
-        var result = await handler.Handle(
-            new ApproveLeaveRequestCommand(
-                leaveRequestId,
-                Guid.NewGuid(),
-                null),
-            CancellationToken.None);
-
-        Assert.Null(result);
-        Assert.Equal(leaveRequestId, writeRepository.RequestedLeaveRequestId);
-        Assert.Equal(new[] { "GetForModification" }, callSequence);
-    }
-
-    [Theory]
-    [InlineData(LeaveRequestStatus.Approved)]
-    [InlineData(LeaveRequestStatus.Rejected)]
-    public async Task Handle_NonPendingRequestAndEmptyReviewer_ThrowsReviewerErrorFirst(
-        LeaveRequestStatus status)
-    {
-        var leaveRequest = CreateLeaveRequest(status: status);
-        var callSequence = new List<string>();
-
-        var writeRepository = new FakeLeaveRequestWriteRepository(callSequence)
-        {
-            LeaveRequestResult = leaveRequest
-        };
-
-        var handler = new ApproveLeaveRequestCommandHandler(
-            writeRepository,
-            new FakeLeaveRequestReadRepository(callSequence),
-            new FakeEmployeeReadRepository(callSequence));
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => handler.Handle(
-                new ApproveLeaveRequestCommand(
-                    leaveRequest.Id,
-                    Guid.Empty,
-                    null),
-                CancellationToken.None));
-
-        Assert.Equal(
-            "Reviewer employee id cannot be empty.",
-            exception.Message);
-
-        Assert.Equal(status, leaveRequest.Status);
-        Assert.Equal(new[] { "GetForModification" }, callSequence);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Handle_EmployeeMissingOrInactive_ThrowsAndStopsBeforeReviewerLookup(
-        bool employeeExists)
-    {
-        var reviewerId = Guid.NewGuid();
-        var leaveRequest = CreateLeaveRequest();
-        var callSequence = new List<string>();
-
-        var writeRepository = new FakeLeaveRequestWriteRepository(callSequence)
-        {
-            LeaveRequestResult = leaveRequest
-        };
-
-        var employeeReadRepository = new FakeEmployeeReadRepository(callSequence)
-        {
-            ResultFactory = id =>
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository(callSequence);
+        var leaveRequestReadRepository =
+            new FakeLeaveRequestReadRepository(callSequence);
+        var employeeReadRepository =
+            new FakeEmployeeReadRepository(callSequence);
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService(callSequence)
             {
-                if (id != leaveRequest.EmployeeId)
-                {
-                    throw new InvalidOperationException(
-                        "Unexpected repository call.");
-                }
-
-                return employeeExists
-                    ? CreateEmployeeDto(
-                        id,
-                        isActive: false,
-                        EmployeeRole.Employee,
-                        reviewerId)
-                    : null;
-            }
-        };
+                AllowGet = true,
+                Result = null
+            };
 
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
-            new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            leaveRequestReadRepository,
+            employeeReadRepository,
+            currentUserAccessService);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => handler.Handle(
-                new ApproveLeaveRequestCommand(
-                    leaveRequest.Id,
-                    reviewerId,
-                    null),
-                CancellationToken.None));
+        var exception =
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
+                () => handler.Handle(
+                    new ApproveLeaveRequestCommand(
+                        Guid.NewGuid(),
+                        null),
+                    CancellationToken.None));
 
         Assert.Equal(
-            "Employee does not exist or is not active.",
+            "Only current active managers can review leave requests.",
             exception.Message);
-
         Assert.Equal(
-            new[] { leaveRequest.EmployeeId },
+            1,
+            currentUserAccessService.CallCount);
+        Assert.Equal(
+            0,
+            writeRepository.GetForModificationCallCount);
+        Assert.Empty(
             employeeReadRepository.RequestedIds);
-
         Assert.Equal(
-            new[]
-            {
-                "GetForModification",
-                $"GetEmployeeById:{leaveRequest.EmployeeId}"
-            },
-            callSequence);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Handle_ReviewerMissingOrInactive_ThrowsAndStopsBeforeBalanceChecks(
-        bool reviewerExists)
-    {
-        var reviewerId = Guid.NewGuid();
-        var leaveRequest = CreateLeaveRequest();
-        var callSequence = new List<string>();
-
-        var writeRepository = new FakeLeaveRequestWriteRepository(callSequence)
-        {
-            LeaveRequestResult = leaveRequest
-        };
-
-        var employeeReadRepository = new FakeEmployeeReadRepository(callSequence)
-        {
-            ResultFactory = id =>
-            {
-                if (id == leaveRequest.EmployeeId)
-                {
-                    return CreateEmployeeDto(
-                        id,
-                        isActive: true,
-                        EmployeeRole.Employee,
-                        reviewerId);
-                }
-
-                if (id == reviewerId)
-                {
-                    return reviewerExists
-                        ? CreateEmployeeDto(
-                            id,
-                            isActive: false,
-                            EmployeeRole.Manager,
-                            managerId: null)
-                        : null;
-                }
-
-                throw new InvalidOperationException(
-                    "Unexpected repository call.");
-            }
-        };
-
-        var handler = new ApproveLeaveRequestCommandHandler(
-            writeRepository,
-            new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => handler.Handle(
-                new ApproveLeaveRequestCommand(
-                    leaveRequest.Id,
-                    reviewerId,
-                    null),
-                CancellationToken.None));
-
+            0,
+            leaveRequestReadRepository.GetByIdCallCount);
         Assert.Equal(
-            "Reviewer does not exist or is not active.",
-            exception.Message);
-
-        Assert.Equal(
-            new[]
-            {
-                leaveRequest.EmployeeId,
-                reviewerId
-            },
-            employeeReadRepository.RequestedIds);
-
-        Assert.Equal(
-            new[]
-            {
-                "GetForModification",
-                $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}"
-            },
+            new[] { "GetCurrentUserAccess" },
             callSequence);
     }
 
     [Theory]
     [InlineData(EmployeeRole.Employee)]
     [InlineData(EmployeeRole.HR)]
-    public async Task Handle_ReviewerIsNotManager_ThrowsForbiddenOperation(
-        EmployeeRole reviewerRole)
+    public async Task Handle_CurrentUserIsNotManager_ThrowsForbiddenBeforeRepositoryCalls(
+        EmployeeRole role)
     {
-        var reviewerId = Guid.NewGuid();
-        var leaveRequest = CreateLeaveRequest();
         var callSequence = new List<string>();
-
-        var writeRepository = new FakeLeaveRequestWriteRepository(callSequence)
-        {
-            LeaveRequestResult = leaveRequest
-        };
-
-        var employeeReadRepository = CreateValidEmployeeReadRepository(
-            callSequence,
-            leaveRequest.EmployeeId,
-            reviewerId,
-            reviewerRole,
-            employeeManagerId: reviewerId);
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository(callSequence);
+        var leaveRequestReadRepository =
+            new FakeLeaveRequestReadRepository(callSequence);
+        var employeeReadRepository =
+            new FakeEmployeeReadRepository(callSequence);
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                callSequence,
+                Guid.NewGuid(),
+                role);
 
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
-            new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            leaveRequestReadRepository,
+            employeeReadRepository,
+            currentUserAccessService);
 
-        var exception = await Assert.ThrowsAsync<ForbiddenOperationException>(
-            () => handler.Handle(
-                new ApproveLeaveRequestCommand(
-                    leaveRequest.Id,
-                    reviewerId,
-                    null),
-                CancellationToken.None));
+        var exception =
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
+                () => handler.Handle(
+                    new ApproveLeaveRequestCommand(
+                        Guid.NewGuid(),
+                        null),
+                    CancellationToken.None));
 
         Assert.Equal(
-            "Only managers can review leave requests.",
+            "Only current active managers can review leave requests.",
             exception.Message);
+        Assert.Equal(
+            1,
+            currentUserAccessService.CallCount);
+        Assert.Equal(
+            0,
+            writeRepository.GetForModificationCallCount);
+        Assert.Empty(
+            employeeReadRepository.RequestedIds);
+        Assert.Equal(
+            0,
+            leaveRequestReadRepository.GetByIdCallCount);
+        Assert.Equal(
+            new[] { "GetCurrentUserAccess" },
+            callSequence);
+    }
 
+    [Fact]
+    public async Task Handle_LeaveRequestDoesNotExist_ReturnsNullAndStopsProcessing()
+    {
+        var reviewerId = Guid.NewGuid();
+        var leaveRequestId = Guid.NewGuid();
+        var callSequence = new List<string>();
+
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository(callSequence)
+            {
+                LeaveRequestResult = null
+            };
+
+        var employeeReadRepository =
+            new FakeEmployeeReadRepository(callSequence);
+        var leaveRequestReadRepository =
+            new FakeLeaveRequestReadRepository(callSequence);
+        var currentUserAccessService =
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId);
+
+        var handler = new ApproveLeaveRequestCommandHandler(
+            writeRepository,
+            leaveRequestReadRepository,
+            employeeReadRepository,
+            currentUserAccessService);
+
+        var result = await handler.Handle(
+            new ApproveLeaveRequestCommand(
+                leaveRequestId,
+                null),
+            CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Equal(
+            leaveRequestId,
+            writeRepository.RequestedLeaveRequestId);
+        Assert.Empty(
+            employeeReadRepository.RequestedIds);
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+        Assert.Equal(
+            0,
+            leaveRequestReadRepository.GetByIdCallCount);
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
+                "GetForModification"
+            },
+            callSequence);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_RequestOwnerMissingOrInactive_ReturnsNullWithoutMutation(
+        bool employeeExists)
+    {
+        var reviewerId = Guid.NewGuid();
+        var leaveRequest = CreateLeaveRequest();
+        var originalStatus = leaveRequest.Status;
+        var originalUpdatedAtUtc = leaveRequest.UpdatedAtUtc;
+        var callSequence = new List<string>();
+
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository(callSequence)
+            {
+                LeaveRequestResult = leaveRequest
+            };
+
+        var employeeReadRepository =
+            new FakeEmployeeReadRepository(callSequence)
+            {
+                ResultFactory = id =>
+                {
+                    if (id != leaveRequest.EmployeeId)
+                    {
+                        throw new InvalidOperationException(
+                            "Unexpected repository call.");
+                    }
+
+                    return employeeExists
+                        ? CreateEmployeeDto(
+                            id,
+                            isActive: false,
+                            EmployeeRole.Employee,
+                            reviewerId)
+                        : null;
+                }
+            };
+
+        var leaveRequestReadRepository =
+            new FakeLeaveRequestReadRepository(callSequence);
+        var currentUserAccessService =
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId);
+
+        var handler = new ApproveLeaveRequestCommandHandler(
+            writeRepository,
+            leaveRequestReadRepository,
+            employeeReadRepository,
+            currentUserAccessService);
+
+        var result = await handler.Handle(
+            new ApproveLeaveRequestCommand(
+                leaveRequest.Id,
+                null),
+            CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Equal(
+            new[] { leaveRequest.EmployeeId },
+            employeeReadRepository.RequestedIds);
+        Assert.Equal(
+            originalStatus,
+            leaveRequest.Status);
+        Assert.Equal(
+            originalUpdatedAtUtc,
+            leaveRequest.UpdatedAtUtc);
+        Assert.Null(
+            leaveRequest.ReviewedByEmployeeId);
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+        Assert.Equal(
+            0,
+            leaveRequestReadRepository.GetByIdCallCount);
+        Assert.Equal(
+            new[]
+            {
+                "GetCurrentUserAccess",
                 "GetForModification",
-                $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}"
+                $"GetEmployeeById:{leaveRequest.EmployeeId}"
             },
             callSequence);
     }
 
     [Fact]
-    public async Task Handle_ReviewerIsNotDirectManager_ThrowsForbiddenOperation()
+    public async Task Handle_CurrentManagerIsNotDirectManager_ReturnsNullWithoutMutation()
     {
         var reviewerId = Guid.NewGuid();
         var leaveRequest = CreateLeaveRequest();
+        var originalStatus = leaveRequest.Status;
+        var originalUpdatedAtUtc = leaveRequest.UpdatedAtUtc;
         var callSequence = new List<string>();
 
-        var writeRepository = new FakeLeaveRequestWriteRepository(callSequence)
-        {
-            LeaveRequestResult = leaveRequest
-        };
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository(callSequence)
+            {
+                LeaveRequestResult = leaveRequest
+            };
 
-        var employeeReadRepository = CreateValidEmployeeReadRepository(
-            callSequence,
-            leaveRequest.EmployeeId,
-            reviewerId,
-            reviewerRole: EmployeeRole.Manager,
-            employeeManagerId: Guid.NewGuid());
+        var employeeReadRepository =
+            CreateValidEmployeeReadRepository(
+                callSequence,
+                leaveRequest.EmployeeId,
+                reviewerId,
+                employeeManagerId: Guid.NewGuid());
+
+        var leaveRequestReadRepository =
+            new FakeLeaveRequestReadRepository(callSequence);
+        var currentUserAccessService =
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId);
 
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
-            new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            leaveRequestReadRepository,
+            employeeReadRepository,
+            currentUserAccessService);
 
-        var exception = await Assert.ThrowsAsync<ForbiddenOperationException>(
-            () => handler.Handle(
-                new ApproveLeaveRequestCommand(
-                    leaveRequest.Id,
-                    reviewerId,
-                    null),
-                CancellationToken.None));
+        var result = await handler.Handle(
+            new ApproveLeaveRequestCommand(
+                leaveRequest.Id,
+                null),
+            CancellationToken.None);
 
+        Assert.Null(result);
         Assert.Equal(
-            "Only the employee's direct manager can review this leave request.",
-            exception.Message);
-
+            originalStatus,
+            leaveRequest.Status);
+        Assert.Equal(
+            originalUpdatedAtUtc,
+            leaveRequest.UpdatedAtUtc);
+        Assert.Null(
+            leaveRequest.ReviewedByEmployeeId);
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+        Assert.Equal(
+            0,
+            leaveRequestReadRepository.GetByIdCallCount);
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
-                $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}"
+                $"GetEmployeeById:{leaveRequest.EmployeeId}"
             },
             callSequence);
     }
@@ -358,13 +385,15 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle(
                 new ApproveLeaveRequestCommand(
                     leaveRequest.Id,
-                    reviewerId,
                     null),
                 CancellationToken.None));
 
@@ -380,9 +409,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}"
             },
             callSequence);
     }
@@ -411,13 +440,15 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle(
                 new ApproveLeaveRequestCommand(
                     leaveRequest.Id,
-                    reviewerId,
                     null),
                 CancellationToken.None));
 
@@ -433,9 +464,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}"
             },
             callSequence);
     }
@@ -461,13 +492,15 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle(
                 new ApproveLeaveRequestCommand(
                     leaveRequest.Id,
-                    reviewerId,
                     null),
                 CancellationToken.None));
 
@@ -485,9 +518,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}",
                 "GetLeaveType"
             },
             callSequence);
@@ -518,13 +551,15 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle(
                 new ApproveLeaveRequestCommand(
                     leaveRequest.Id,
-                    reviewerId,
                     null),
                 CancellationToken.None));
 
@@ -574,13 +609,15 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle(
                 new ApproveLeaveRequestCommand(
                     leaveRequest.Id,
-                    reviewerId,
                     "Reviewed"),
                 CancellationToken.None));
 
@@ -594,9 +631,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}",
                 "GetLeaveType",
                 "GetApprovedUsedDaysForYear:2026"
             },
@@ -641,10 +678,16 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             Result = expectedDto
         };
 
+        var currentUserAccessService =
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId);
+
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             leaveRequestReadRepository,
-            employeeReadRepository);
+            employeeReadRepository,
+            currentUserAccessService);
 
         using var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
@@ -654,7 +697,6 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var result = await handler.Handle(
             new ApproveLeaveRequestCommand(
                 leaveRequest.Id,
-                reviewerId,
                 managerComment),
             cancellationToken);
 
@@ -715,6 +757,11 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             cancellationToken,
             usageRequest.CancellationToken);
 
+        Assert.Equal(
+            cancellationToken,
+            Assert.Single(
+                currentUserAccessService.ReceivedCancellationTokens));
+
         Assert.All(
             employeeReadRepository.ReceivedCancellationTokens,
             receivedToken => Assert.Equal(
@@ -730,9 +777,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}",
                 "GetLeaveType",
                 "GetApprovedUsedDaysForYear:2026",
                 "SaveChanges",
@@ -772,12 +819,14 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             leaveRequestReadRepository,
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var result = await handler.Handle(
             new ApproveLeaveRequestCommand(
                 leaveRequest.Id,
-                reviewerId,
                 null),
             CancellationToken.None);
 
@@ -790,9 +839,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}",
                 "GetLeaveType",
                 "GetApprovedUsedDaysForYear:2026",
                 "SaveChanges",
@@ -839,12 +888,14 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             leaveRequestReadRepository,
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var result = await handler.Handle(
             new ApproveLeaveRequestCommand(
                 leaveRequest.Id,
-                reviewerId,
                 null),
             CancellationToken.None);
 
@@ -862,9 +913,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}",
                 "GetLeaveType",
                 "GetApprovedUsedDaysForYear:2026",
                 "SaveChanges",
@@ -917,12 +968,14 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             leaveRequestReadRepository,
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var result = await handler.Handle(
             new ApproveLeaveRequestCommand(
                 leaveRequest.Id,
-                reviewerId,
                 "Approved"),
             CancellationToken.None);
 
@@ -963,9 +1016,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}",
                 "GetLeaveType",
                 "GetApprovedUsedDaysForYear:2026",
                 "GetApprovedUsedDaysForYear:2027",
@@ -1006,13 +1059,15 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle(
                 new ApproveLeaveRequestCommand(
                     leaveRequest.Id,
-                    reviewerId,
                     null),
                 CancellationToken.None));
 
@@ -1039,9 +1094,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}",
                 "GetLeaveType",
                 "GetApprovedUsedDaysForYear:2026",
                 "GetApprovedUsedDaysForYear:2027"
@@ -1073,13 +1128,15 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var handler = new ApproveLeaveRequestCommandHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
-            employeeReadRepository);
+            employeeReadRepository,
+            CreateManagerCurrentUserAccessService(
+                callSequence,
+                reviewerId));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle(
                 new ApproveLeaveRequestCommand(
                     leaveRequest.Id,
-                    reviewerId,
                     new string('a', 501)),
                 CancellationToken.None));
 
@@ -1097,9 +1154,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
+                "GetCurrentUserAccess",
                 "GetForModification",
                 $"GetEmployeeById:{leaveRequest.EmployeeId}",
-                $"GetEmployeeById:{reviewerId}",
                 "GetLeaveType",
                 "GetApprovedUsedDaysForYear:2026"
             },
@@ -1135,39 +1192,56 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         };
     }
 
+    private static FakeCurrentUserAccessService CreateManagerCurrentUserAccessService(
+        List<string> callSequence,
+        Guid reviewerEmployeeId)
+    {
+        return CreateCurrentUserAccessService(
+            callSequence,
+            reviewerEmployeeId,
+            EmployeeRole.Manager);
+    }
+
+    private static FakeCurrentUserAccessService CreateCurrentUserAccessService(
+        List<string> callSequence,
+        Guid employeeId,
+        EmployeeRole role)
+    {
+        return new FakeCurrentUserAccessService(callSequence)
+        {
+            AllowGet = true,
+            Result = new CurrentUserAccess(
+                Guid.NewGuid(),
+                employeeId,
+                $"{employeeId}@example.com",
+                role)
+        };
+    }
+
     private static FakeEmployeeReadRepository CreateValidEmployeeReadRepository(
         List<string> callSequence,
         Guid employeeId,
         Guid reviewerId,
-        EmployeeRole reviewerRole = EmployeeRole.Manager,
         Guid? employeeManagerId = null)
     {
-        var managerId = employeeManagerId ?? reviewerId;
+        var managerId =
+            employeeManagerId ?? reviewerId;
 
         return new FakeEmployeeReadRepository(callSequence)
         {
             ResultFactory = id =>
             {
-                if (id == employeeId)
+                if (id != employeeId)
                 {
-                    return CreateEmployeeDto(
-                        id,
-                        isActive: true,
-                        EmployeeRole.Employee,
-                        managerId);
+                    throw new InvalidOperationException(
+                        "Unexpected repository call.");
                 }
 
-                if (id == reviewerId)
-                {
-                    return CreateEmployeeDto(
-                        id,
-                        isActive: true,
-                        reviewerRole,
-                        managerId: null);
-                }
-
-                throw new InvalidOperationException(
-                    "Unexpected repository call.");
+                return CreateEmployeeDto(
+                    id,
+                    isActive: true,
+                    EmployeeRole.Employee,
+                    managerId);
             }
         };
     }
@@ -1275,6 +1349,40 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             "Manager User",
             DateTime.UtcNow,
             DateTime.UtcNow);
+    }
+
+    private sealed class FakeCurrentUserAccessService(
+        List<string> callSequence)
+        : ICurrentUserAccessService
+    {
+        public bool AllowGet { get; init; }
+
+        public CurrentUserAccess? Result { get; init; }
+
+        public int CallCount { get; private set; }
+
+        public List<CancellationToken> ReceivedCancellationTokens
+        {
+            get;
+        } = new();
+
+        public Task<CurrentUserAccess?> GetAsync(
+            CancellationToken cancellationToken = default)
+        {
+            if (!AllowGet)
+            {
+                throw new InvalidOperationException(
+                    "Unexpected current-user access call.");
+            }
+
+            CallCount++;
+            ReceivedCancellationTokens.Add(
+                cancellationToken);
+            callSequence.Add(
+                "GetCurrentUserAccess");
+
+            return Task.FromResult(Result);
+        }
     }
 
     private sealed record ApprovedUsedDaysRequest(

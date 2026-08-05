@@ -91,6 +91,67 @@ public sealed class SwaggerAuthorizationDocumentationTests(
                 "/api/test-authentication/authenticated-employee",
                 "get");
 
+        AssertRequiresBearerSecurity(
+            operation);
+    }
+
+    [Theory]
+    [InlineData("/api/leave-requests/{id}/approve")]
+    [InlineData("/api/leave-requests/{id}/reject")]
+    public async Task SwaggerDocument_LeaveReviewEndpoint_RequiresBearerSecurity(
+        string expectedPath)
+    {
+        using var document =
+            await GetSwaggerDocumentAsync();
+
+        var operation =
+            GetOperation(
+                document,
+                expectedPath,
+                "post");
+
+        AssertRequiresBearerSecurity(
+            operation);
+    }
+
+    [Fact]
+    public async Task SwaggerDocument_ReviewRequestSchema_DoesNotExposeReviewerIdentity()
+    {
+        using var document =
+            await GetSwaggerDocumentAsync();
+
+        var schemas =
+            document.RootElement
+                .GetProperty("components")
+                .GetProperty("schemas");
+
+        var reviewRequestSchema =
+            schemas.GetProperty(
+                "ReviewLeaveRequestRequest");
+
+        var properties =
+            reviewRequestSchema.GetProperty(
+                "properties");
+
+        var property =
+            Assert.Single(
+                properties
+                    .EnumerateObject()
+                    .ToArray());
+
+        Assert.Equal(
+            "managerComment",
+            property.Name);
+
+        Assert.False(
+            properties.TryGetProperty(
+                "reviewerEmployeeId",
+                out _));
+    }
+
+    private static void AssertRequiresBearerSecurity(
+        JsonElement operation)
+    {
         var securityRequirements =
             operation.GetProperty(
                 "security");
