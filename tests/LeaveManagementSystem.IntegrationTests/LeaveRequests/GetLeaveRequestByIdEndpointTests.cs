@@ -1,8 +1,11 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using LeaveManagementSystem.Domain.Entities;
 using LeaveManagementSystem.Domain.Enums;
+using LeaveManagementSystem.Infrastructure.Persistence;
 using LeaveManagementSystem.IntegrationTests.Contracts;
 using LeaveManagementSystem.IntegrationTests.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace LeaveManagementSystem.IntegrationTests.LeaveRequests;
@@ -12,34 +15,28 @@ public sealed class GetLeaveRequestByIdEndpointTests(
     : HrIntegrationTestBase(factory)
 {
     [Fact]
-    public async Task GetLeaveRequestById_LeaveRequestExists_ReturnsProjectedLeaveRequest()
+    public async Task GetLeaveRequestById_OwnLeaveRequestExists_ReturnsProjectedLeaveRequest()
     {
         await EnsureDatabaseReadyAsync();
 
-        var departmentId =
-            await CreateDepartmentAsync();
-
-        Guid? employeeId = null;
         Guid? leaveRequestId = null;
 
         try
         {
-            employeeId =
-                await CreateEmployeeViaApiAsync(
-                    departmentId);
-
             var createRequest = new
             {
-                employeeId = employeeId.Value,
-                leaveTypeId = AnnualLeaveTypeId,
-                startDate = "2026-11-10",
-                endDate = "2026-11-12",
+                leaveTypeId =
+                    AnnualLeaveTypeId,
+                startDate =
+                    "2026-11-10",
+                endDate =
+                    "2026-11-12",
                 reason =
                     "Get by id integration test."
             };
 
             using var createResponse =
-                await _client.PostAsJsonAsync(
+                await HrClient.PostAsJsonAsync(
                     "/api/leave-requests",
                     createRequest);
 
@@ -58,8 +55,12 @@ public sealed class GetLeaveRequestByIdEndpointTests(
             leaveRequestId =
                 createdLeaveRequest!.Id;
 
+            Assert.Equal(
+                HrEmployeeId,
+                createdLeaveRequest.EmployeeId);
+
             using var response =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/leave-requests/{leaveRequestId.Value}");
 
             Assert.Equal(
@@ -79,11 +80,11 @@ public sealed class GetLeaveRequestByIdEndpointTests(
                 leaveRequest!.Id);
 
             Assert.Equal(
-                employeeId.Value,
+                HrEmployeeId,
                 leaveRequest.EmployeeId);
 
             Assert.Equal(
-                "Integration LeaveEmployee",
+                "Integration HrAdministrator",
                 leaveRequest.EmployeeFullName);
 
             Assert.Equal(
@@ -136,27 +137,86 @@ public sealed class GetLeaveRequestByIdEndpointTests(
         finally
         {
             await CleanupAsync(
-                leaveRequestId: leaveRequestId,
-                employeeId: employeeId,
-                departmentId: departmentId);
+                leaveRequestId:
+                    leaveRequestId,
+                employeeId:
+                    null,
+                departmentId:
+                    null);
         }
     }
 
     [Fact]
-    public async Task GetLeaveRequestById_LeaveRequestDoesNotExist_ReturnsNotFound()
+    public async Task GetLeaveRequestById_OtherEmployeesLeaveRequest_ReturnsNotFound()
     {
         await EnsureDatabaseReadyAsync();
+
+        var departmentId =
+            await CreateDepartmentAsync();
+
+        Guid? otherEmployeeId = null;
 
         var leaveRequestId =
             Guid.NewGuid();
 
-        using var response =
-            await _client.GetAsync(
-                $"/api/leave-requests/{leaveRequestId}");
+        try
+        {
+            otherEmployeeId =
+                await CreateEmployeeViaApiAsync(
+                    departmentId);
 
-        Assert.Equal(
-            HttpStatusCode.NotFound,
-            response.StatusCode);
+            var leaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        leaveRequestId,
+                    EmployeeId =
+                        otherEmployeeId.Value,
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+                    Reason =
+                        "Another employee's leave request.",
+                    CreatedAtUtc =
+                        DateTime.UtcNow,
+                    UpdatedAtUtc =
+                        null
+                };
+
+            leaveRequest.SetDateRange(
+                new DateOnly(2026, 12, 1),
+                new DateOnly(2026, 12, 2));
+
+            using (var scope =
+                   _factory.Services.CreateScope())
+            {
+                var dbContext =
+                    scope.ServiceProvider
+                        .GetRequiredService<AppDbContext>();
+
+                dbContext.LeaveRequests.Add(
+                    leaveRequest);
+
+                await dbContext.SaveChangesAsync();
+            }
+
+            using var response =
+                await HrClient.GetAsync(
+                    $"/api/leave-requests/{leaveRequestId}");
+
+            Assert.Equal(
+                HttpStatusCode.NotFound,
+                response.StatusCode);
+        }
+        finally
+        {
+            await CleanupAsync(
+                leaveRequestId:
+                    leaveRequestId,
+                employeeId:
+                    otherEmployeeId,
+                departmentId:
+                    departmentId);
+        }
     }
 
     [Fact]
@@ -165,7 +225,7 @@ public sealed class GetLeaveRequestByIdEndpointTests(
         await EnsureDatabaseReadyAsync();
 
         using var response =
-            await _client.GetAsync(
+            await HrClient.GetAsync(
                 $"/api/leave-requests/{Guid.Empty}");
 
         Assert.Equal(

@@ -1,4 +1,7 @@
-﻿using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
+﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.Authentication.Models;
+using LeaveManagementSystem.Application.UnitTests.TestDoubles;
+using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.CreateLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Domain.Entities;
@@ -58,13 +61,13 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             };
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
-                readRepository);
+                readRepository,
+                employeeId);
 
         var command =
             new CreateLeaveRequestCommand(
-                employeeId,
                 leaveType.Id,
                 startDate,
                 endDate,
@@ -84,10 +87,6 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         var addedLeaveRequest =
             Assert.IsType<LeaveRequest>(
                 writeRepository.AddedLeaveRequest);
-
-        Assert.Equal(
-            employeeId,
-            addedLeaveRequest.EmployeeId);
 
         Assert.Equal(
             leaveType.Id,
@@ -112,10 +111,6 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         Assert.Equal(
             "Family trip",
             addedLeaveRequest.Reason);
-
-        Assert.Equal(
-            employeeId,
-            writeRepository.RequestedActiveEmployeeId);
 
         Assert.Equal(
             leaveType.Id,
@@ -156,7 +151,7 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             balanceRequest.ExcludedLeaveRequestId);
 
         Assert.Equal(
-            1,
+            0,
             writeRepository.ActiveEmployeeExistsCallCount);
 
         Assert.Equal(
@@ -193,7 +188,7 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             result);
 
         Assert.Equal(
-            5,
+            4,
             writeRepository.ReceivedCancellationTokens.Count);
 
         Assert.All(
@@ -216,7 +211,6 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "ActiveEmployeeExists",
                 "GetLeaveType",
                 "HasOverlap",
                 "GetApprovedUsedDaysForYear:2026",
@@ -242,13 +236,12 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             new FakeLeaveRequestReadRepository();
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
         var command =
             new CreateLeaveRequestCommand(
-                Guid.NewGuid(),
                 leaveType.Id,
                 new DateOnly(2026, 6, 10),
                 new DateOnly(2026, 6, 12),
@@ -285,13 +278,12 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             new FakeLeaveRequestReadRepository();
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
         var command =
             new CreateLeaveRequestCommand(
-                Guid.NewGuid(),
                 leaveType.Id,
                 new DateOnly(2026, 6, 10),
                 new DateOnly(2026, 6, 12),
@@ -327,13 +319,12 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             new FakeLeaveRequestReadRepository();
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
         var command =
             new CreateLeaveRequestCommand(
-                Guid.NewGuid(),
                 leaveType.Id,
                 new DateOnly(2026, 6, 12),
                 new DateOnly(2026, 6, 10),
@@ -373,13 +364,12 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             new FakeLeaveRequestReadRepository();
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
         var command =
             new CreateLeaveRequestCommand(
-                Guid.NewGuid(),
                 leaveType.Id,
                 new DateOnly(year, 12, 30),
                 new DateOnly(year, 12, 31),
@@ -401,38 +391,46 @@ public sealed class CreateLeaveRequestCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_EmptyEmployeeId_ThrowsWithoutRepositoryCall()
+    public async Task Handle_CurrentUserAccessMissing_ThrowsForbiddenBeforeRepositoryCalls()
     {
-        var leaveType = CreateLeaveType();
-
         var writeRepository =
-            new FakeLeaveRequestWriteRepository
-            {
-                LeaveTypeResult = leaveType
-            };
+            new FakeLeaveRequestWriteRepository();
 
         var readRepository =
             new FakeLeaveRequestReadRepository();
 
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService
+            {
+                Result = null
+            };
+
         var handler =
             new CreateLeaveRequestCommandHandler(
                 writeRepository,
-                readRepository);
+                readRepository,
+                currentUserAccessService);
 
         var command =
-            CreateValidCommand(
-                Guid.Empty,
-                leaveType);
+            new CreateLeaveRequestCommand(
+                Guid.NewGuid(),
+                new DateOnly(2026, 6, 10),
+                new DateOnly(2026, 6, 12),
+                "Family trip");
 
         var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
                 () => handler.Handle(
                     command,
                     CancellationToken.None));
 
         Assert.Equal(
-            "Employee id cannot be empty.",
+            "Only current active employees can use leave self-service operations.",
             exception.Message);
+
+        Assert.Equal(
+            1,
+            currentUserAccessService.CallCount);
 
         AssertNoRepositoryCalls(
             writeRepository,
@@ -440,68 +438,47 @@ public sealed class CreateLeaveRequestCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_EmployeeDoesNotExistOrIsInactive_ThrowsAndStopsProcessing()
+    public async Task Handle_NullCommand_ThrowsBeforeCurrentUserAndRepositoryCalls()
     {
-        var employeeId = Guid.NewGuid();
-        var leaveType = CreateLeaveType();
-
-        var callSequence =
-            new List<string>();
-
         var writeRepository =
-            new FakeLeaveRequestWriteRepository(
-                callSequence)
-            {
-                ActiveEmployeeExistsResult = false,
-                LeaveTypeResult = leaveType
-            };
+            new FakeLeaveRequestWriteRepository();
 
         var readRepository =
-            new FakeLeaveRequestReadRepository(
-                callSequence);
+            new FakeLeaveRequestReadRepository();
+
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService
+            {
+                Result =
+                    new CurrentUserAccess(
+                        Guid.NewGuid(),
+                        Guid.NewGuid(),
+                        "irem@example.com",
+                        EmployeeRole.Employee)
+            };
 
         var handler =
             new CreateLeaveRequestCommandHandler(
                 writeRepository,
-                readRepository);
+                readRepository,
+                currentUserAccessService);
 
-        var command =
-            CreateValidCommand(
-                employeeId,
-                leaveType);
-
-        var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => handler.Handle(
-                    command,
-                    CancellationToken.None));
-
-        Assert.Equal(
-            "Employee does not exist or is not active.",
-            exception.Message);
-
-        Assert.Equal(
-            new[]
-            {
-                "ActiveEmployeeExists"
-            },
-            callSequence);
-
-        Assert.Equal(
-            1,
-            writeRepository.ActiveEmployeeExistsCallCount);
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => handler.Handle(
+                null!,
+                CancellationToken.None));
 
         Assert.Equal(
             0,
-            writeRepository.GetLeaveTypeCallCount);
+            currentUserAccessService.CallCount);
 
-        AssertDidNotPersist(
+        AssertNoRepositoryCalls(
             writeRepository,
             readRepository);
     }
 
     [Fact]
-    public async Task Handle_EmptyLeaveTypeId_ThrowsAfterEmployeeCheck()
+    public async Task Handle_EmptyLeaveTypeId_ThrowsBeforeRepositoryCalls()
     {
         var employeeId = Guid.NewGuid();
         var leaveType = CreateLeaveType();
@@ -521,7 +498,7 @@ public sealed class CreateLeaveRequestCommandHandlerTests
                 callSequence);
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -541,15 +518,11 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             "Leave type id cannot be empty.",
             exception.Message);
 
-        Assert.Equal(
-            new[]
-            {
-                "ActiveEmployeeExists"
-            },
+        Assert.Empty(
             callSequence);
 
         Assert.Equal(
-            1,
+            0,
             writeRepository.ActiveEmployeeExistsCallCount);
 
         Assert.Equal(
@@ -582,7 +555,7 @@ public sealed class CreateLeaveRequestCommandHandlerTests
                 callSequence);
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -604,7 +577,6 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "ActiveEmployeeExists",
                 "GetLeaveType"
             },
             callSequence);
@@ -640,7 +612,7 @@ public sealed class CreateLeaveRequestCommandHandlerTests
                 callSequence);
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -662,7 +634,6 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "ActiveEmployeeExists",
                 "GetLeaveType",
                 "HasOverlap"
             },
@@ -704,13 +675,12 @@ public sealed class CreateLeaveRequestCommandHandlerTests
                 callSequence);
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
         var command =
             new CreateLeaveRequestCommand(
-                employeeId,
                 leaveType.Id,
                 new DateOnly(2026, 6, 10),
                 new DateOnly(2026, 6, 11),
@@ -729,7 +699,6 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "ActiveEmployeeExists",
                 "GetLeaveType",
                 "HasOverlap",
                 "GetApprovedUsedDaysForYear:2026"
@@ -773,7 +742,7 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             };
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -858,13 +827,12 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             };
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
         var command =
             new CreateLeaveRequestCommand(
-                employeeId,
                 leaveType.Id,
                 startDate,
                 endDate,
@@ -895,7 +863,6 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "ActiveEmployeeExists",
                 "GetLeaveType",
                 "HasOverlap",
                 "GetApprovedUsedDaysForYear:2026",
@@ -958,13 +925,12 @@ public sealed class CreateLeaveRequestCommandHandlerTests
                 callSequence);
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
         var command =
             new CreateLeaveRequestCommand(
-                employeeId,
                 leaveType.Id,
                 startDate,
                 endDate,
@@ -983,7 +949,6 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "ActiveEmployeeExists",
                 "GetLeaveType",
                 "HasOverlap",
                 "GetApprovedUsedDaysForYear:2026",
@@ -1017,7 +982,7 @@ public sealed class CreateLeaveRequestCommandHandlerTests
                 callSequence);
 
         var handler =
-            new CreateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -1051,7 +1016,6 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-                "ActiveEmployeeExists",
                 "GetLeaveType",
                 "HasOverlap",
                 "GetApprovedUsedDaysForYear:2026",
@@ -1062,13 +1026,34 @@ public sealed class CreateLeaveRequestCommandHandlerTests
             callSequence);
     }
 
+    private static CreateLeaveRequestCommandHandler CreateHandler(
+        FakeLeaveRequestWriteRepository writeRepository,
+        ILeaveRequestReadRepository readRepository,
+        Guid? employeeId = null)
+    {
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService
+            {
+                Result =
+                    new CurrentUserAccess(
+                        Guid.NewGuid(),
+                        employeeId ?? Guid.NewGuid(),
+                        "irem@example.com",
+                        EmployeeRole.Employee)
+            };
+
+        return new CreateLeaveRequestCommandHandler(
+            writeRepository,
+            readRepository,
+            currentUserAccessService);
+    }
+
     private static CreateLeaveRequestCommand CreateValidCommand(
         Guid employeeId,
         LeaveType leaveType,
         Guid? leaveTypeId = null)
     {
         return new CreateLeaveRequestCommand(
-            employeeId,
             leaveTypeId ?? leaveType.Id,
             new DateOnly(2026, 6, 10),
             new DateOnly(2026, 6, 12),
@@ -1288,6 +1273,15 @@ public sealed class CreateLeaveRequestCommandHandlerTests
         public Task<LeaveRequest?> GetForModificationAsync(
             Guid id,
             CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "Unexpected repository call.");
+        }
+
+        public Task<LeaveRequest?> GetForModificationForEmployeeAsync(
+    Guid id,
+    Guid employeeId,
+    CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException(
                 "Unexpected repository call.");

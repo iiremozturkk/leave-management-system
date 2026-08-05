@@ -78,6 +78,10 @@ public static class DependencyInjection
             LeaveRequestReadRepository>();
 
         services.AddScoped<
+            ILeaveRequestSelfServiceReadRepository,
+            LeaveRequestReadRepository>();
+
+        services.AddScoped<
             ILeaveBalanceReadRepository,
             LeaveBalanceReadRepository>();
 

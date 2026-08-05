@@ -16,20 +16,12 @@ public sealed class LeaveRequestCrudEndpointTests(
     {
         await EnsureDatabaseReadyAsync();
 
-        var departmentId =
-            await CreateDepartmentAsync();
-
-        Guid? employeeId = null;
         Guid? leaveRequestId = null;
 
         try
         {
-            employeeId =
-                await CreateEmployeeViaApiAsync(
-                    departmentId);
-
             var listBeforeCreateResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     "/api/leave-requests");
 
             Assert.Equal(
@@ -38,16 +30,18 @@ public sealed class LeaveRequestCrudEndpointTests(
 
             var createRequest = new
             {
-                employeeId,
-                leaveTypeId = AnnualLeaveTypeId,
-                startDate = "2026-07-15",
-                endDate = "2026-07-17",
+                leaveTypeId =
+                    AnnualLeaveTypeId,
+                startDate =
+                    "2026-07-15",
+                endDate =
+                    "2026-07-17",
                 reason =
                     "Integration test leave request."
             };
 
             var createResponse =
-                await _client.PostAsJsonAsync(
+                await HrClient.PostAsJsonAsync(
                     "/api/leave-requests",
                     createRequest);
 
@@ -67,7 +61,7 @@ public sealed class LeaveRequestCrudEndpointTests(
                 createdLeaveRequest!.Id;
 
             Assert.Equal(
-                employeeId,
+                HrEmployeeId,
                 createdLeaveRequest.EmployeeId);
 
             Assert.Equal(
@@ -87,7 +81,7 @@ public sealed class LeaveRequestCrudEndpointTests(
                 createdLeaveRequest.Reason);
 
             var getByIdResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     $"/api/leave-requests/{leaveRequestId}");
 
             Assert.Equal(
@@ -107,7 +101,7 @@ public sealed class LeaveRequestCrudEndpointTests(
                 loadedLeaveRequest!.Id);
 
             var listAfterCreateResponse =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     "/api/leave-requests");
 
             Assert.Equal(
@@ -125,19 +119,23 @@ public sealed class LeaveRequestCrudEndpointTests(
             Assert.Contains(
                 leaveRequests!,
                 leaveRequest =>
-                    leaveRequest.Id == leaveRequestId);
+                    leaveRequest.Id ==
+                    leaveRequestId);
 
             var updateRequest = new
             {
-                leaveTypeId = AnnualLeaveTypeId,
-                startDate = "2026-07-16",
-                endDate = "2026-07-18",
+                leaveTypeId =
+                    AnnualLeaveTypeId,
+                startDate =
+                    "2026-07-16",
+                endDate =
+                    "2026-07-18",
                 reason =
                     "Updated integration test leave request."
             };
 
             var updateResponse =
-                await _client.PutAsJsonAsync(
+                await HrClient.PutAsJsonAsync(
                     $"/api/leave-requests/{leaveRequestId}",
                     updateRequest);
 
@@ -166,7 +164,7 @@ public sealed class LeaveRequestCrudEndpointTests(
                 updatedLeaveRequest.Reason);
 
             var deleteResponse =
-                await _client.DeleteAsync(
+                await HrClient.DeleteAsync(
                     $"/api/leave-requests/{leaveRequestId}");
 
             Assert.Equal(
@@ -178,9 +176,12 @@ public sealed class LeaveRequestCrudEndpointTests(
         finally
         {
             await CleanupAsync(
-                leaveRequestId: leaveRequestId,
-                employeeId: employeeId,
-                departmentId: departmentId);
+                leaveRequestId:
+                    leaveRequestId,
+                employeeId:
+                    null,
+                departmentId:
+                    null);
         }
     }
 }

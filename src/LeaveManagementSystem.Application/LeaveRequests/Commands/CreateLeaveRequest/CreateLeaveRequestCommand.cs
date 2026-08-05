@@ -4,7 +4,6 @@ using MediatR;
 namespace LeaveManagementSystem.Application.LeaveRequests.Commands.CreateLeaveRequest;
 
 public sealed record CreateLeaveRequestCommand(
-    Guid EmployeeId,
     Guid LeaveTypeId,
     DateOnly StartDate,
     DateOnly EndDate,

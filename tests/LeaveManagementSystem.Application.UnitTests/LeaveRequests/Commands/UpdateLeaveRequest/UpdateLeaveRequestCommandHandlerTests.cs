@@ -1,4 +1,7 @@
-﻿using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
+﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.Authentication.Models;
+using LeaveManagementSystem.Application.UnitTests.TestDoubles;
+using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.UpdateLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Domain.Entities;
@@ -19,7 +22,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -34,9 +37,56 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_CurrentUserAccessMissing_ThrowsForbiddenBeforeRepositoryCall()
+    {
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository();
+
+        var readRepository =
+            new FailFastLeaveRequestReadRepository();
+
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService
+            {
+                Result = null
+            };
+
+        var handler =
+            new UpdateLeaveRequestCommandHandler(
+                writeRepository,
+                readRepository,
+                currentUserAccessService);
+
+        var exception =
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
+                () => handler.Handle(
+                    CreateValidCommand(
+                        Guid.NewGuid()),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "Only current active employees can use leave self-service operations.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetForModificationCallCount);
+
+        Assert.Empty(
+            writeRepository.ReceivedCancellationTokens);
+    }
+
+    [Fact]
     public async Task Handle_LeaveRequestDoesNotExist_ReturnsNullAndStopsProcessing()
     {
         var leaveRequestId =
+            Guid.NewGuid();
+
+        var employeeId =
             Guid.NewGuid();
 
         var callSequence =
@@ -50,9 +100,10 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
-                readRepository);
+                readRepository,
+                employeeId);
 
         var command =
             CreateValidCommand(
@@ -79,6 +130,10 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         Assert.Equal(
             leaveRequestId,
             writeRepository.RequestedId);
+
+        Assert.Equal(
+            employeeId,
+            writeRepository.RequestedEmployeeId);
 
         Assert.Equal(
             cancellationToken,
@@ -133,7 +188,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -216,7 +271,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -290,7 +345,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -347,7 +402,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -406,7 +461,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -467,7 +522,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -527,7 +582,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -635,7 +690,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -785,7 +840,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -944,7 +999,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             new FailFastLeaveRequestReadRepository();
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -1116,7 +1171,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             };
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -1288,7 +1343,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             };
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -1468,7 +1523,7 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             };
 
         var handler =
-            new UpdateLeaveRequestCommandHandler(
+            CreateHandler(
                 writeRepository,
                 readRepository);
 
@@ -1523,6 +1578,38 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             "GetById"
             },
             callSequence);
+    }
+
+    private static UpdateLeaveRequestCommandHandler CreateHandler(
+        FakeLeaveRequestWriteRepository writeRepository,
+        ILeaveRequestReadRepository readRepository,
+        Guid? employeeId = null)
+    {
+        var resolvedEmployeeId =
+            employeeId
+            ?? writeRepository.LeaveRequestResult?.EmployeeId
+            ?? Guid.NewGuid();
+
+        return new UpdateLeaveRequestCommandHandler(
+            writeRepository,
+            readRepository,
+            CreateCurrentUserAccessService(
+                resolvedEmployeeId));
+    }
+
+    private static FakeCurrentUserAccessService
+        CreateCurrentUserAccessService(
+            Guid employeeId)
+    {
+        return new FakeCurrentUserAccessService
+        {
+            Result =
+                new CurrentUserAccess(
+                    Guid.NewGuid(),
+                    employeeId,
+                    "irem@example.com",
+                    EmployeeRole.Employee)
+        };
     }
 
     private static UpdateLeaveRequestCommand CreateValidCommand(
@@ -1697,6 +1784,12 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
             private set;
         }
 
+        public Guid RequestedEmployeeId
+        {
+            get;
+            private set;
+        }
+
         public Guid RequestedLeaveTypeId
         {
             get;
@@ -1722,12 +1815,25 @@ public sealed class UpdateLeaveRequestCommandHandlerTests
         } = new();
 
         public Task<LeaveRequest?> GetForModificationAsync(
+           Guid id,
+           CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "Unexpected repository call.");
+        }
+
+        public Task<LeaveRequest?> GetForModificationForEmployeeAsync(
             Guid id,
+            Guid employeeId,
             CancellationToken cancellationToken = default)
         {
             GetForModificationCallCount++;
+
             RequestedId =
                 id;
+
+            RequestedEmployeeId =
+                employeeId;
 
             ReceivedCancellationTokens.Add(
                 cancellationToken);

@@ -1,6 +1,10 @@
-﻿using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
+﻿using LeaveManagementSystem.Application.Authentication.Models;
+using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveBalance;
+using LeaveManagementSystem.Application.UnitTests.TestDoubles;
+using LeaveManagementSystem.Domain.Enums;
 using Xunit;
 
 namespace LeaveManagementSystem.Application.UnitTests.LeaveRequests.Queries.GetLeaveBalance;
@@ -28,13 +32,17 @@ public sealed class GetLeaveBalanceQueryHandlerTests
                 Balance = expectedBalance
             };
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                employeeId);
+
         var handler =
             new GetLeaveBalanceQueryHandler(
-                repository);
+                repository,
+                currentUserAccessService);
 
         var query =
             new GetLeaveBalanceQuery(
-                employeeId,
                 leaveTypeId,
                 2026);
 
@@ -81,13 +89,17 @@ public sealed class GetLeaveBalanceQueryHandlerTests
                 Balance = null
             };
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                employeeId);
+
         var handler =
             new GetLeaveBalanceQueryHandler(
-                repository);
+                repository,
+                currentUserAccessService);
 
         var query =
             new GetLeaveBalanceQuery(
-                employeeId,
                 leaveTypeId,
                 2026);
 
@@ -99,35 +111,46 @@ public sealed class GetLeaveBalanceQueryHandlerTests
             result);
 
         Assert.Equal(
+            employeeId,
+            repository.RequestedEmployeeId);
+
+        Assert.Equal(
             1,
             repository.GetBalanceCallCount);
     }
 
     [Fact]
-    public async Task Handle_EmployeeIdIsEmpty_ThrowsBeforeRepositoryCall()
+    public async Task Handle_CurrentUserAccessMissing_ThrowsForbiddenBeforeRepositoryCall()
     {
         var repository =
             new FakeLeaveBalanceReadRepository();
 
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService
+            {
+                Result = null
+            };
+
         var handler =
             new GetLeaveBalanceQueryHandler(
-                repository);
-
-        var query =
-            new GetLeaveBalanceQuery(
-                Guid.Empty,
-                Guid.NewGuid(),
-                2026);
+                repository,
+                currentUserAccessService);
 
         var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
                 () => handler.Handle(
-                    query,
+                    new GetLeaveBalanceQuery(
+                        Guid.NewGuid(),
+                        2026),
                     CancellationToken.None));
 
         Assert.Equal(
-            "Employee id cannot be empty.",
+            "Only current active employees can use leave self-service operations.",
             exception.Message);
+
+        Assert.Equal(
+            1,
+            currentUserAccessService.CallCount);
 
         Assert.Equal(
             0,
@@ -140,13 +163,17 @@ public sealed class GetLeaveBalanceQueryHandlerTests
         var repository =
             new FakeLeaveBalanceReadRepository();
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                Guid.NewGuid());
+
         var handler =
             new GetLeaveBalanceQueryHandler(
-                repository);
+                repository,
+                currentUserAccessService);
 
         var query =
             new GetLeaveBalanceQuery(
-                Guid.NewGuid(),
                 Guid.Empty,
                 2026);
 
@@ -174,13 +201,17 @@ public sealed class GetLeaveBalanceQueryHandlerTests
         var repository =
             new FakeLeaveBalanceReadRepository();
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                Guid.NewGuid());
+
         var handler =
             new GetLeaveBalanceQueryHandler(
-                repository);
+                repository,
+                currentUserAccessService);
 
         var query =
             new GetLeaveBalanceQuery(
-                Guid.NewGuid(),
                 Guid.NewGuid(),
                 year);
 
@@ -214,19 +245,27 @@ public sealed class GetLeaveBalanceQueryHandlerTests
         var repository =
             new FakeLeaveBalanceReadRepository();
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                employeeId);
+
         var handler =
             new GetLeaveBalanceQueryHandler(
-                repository);
+                repository,
+                currentUserAccessService);
 
         var query =
             new GetLeaveBalanceQuery(
-                employeeId,
                 leaveTypeId,
                 year);
 
         await handler.Handle(
             query,
             CancellationToken.None);
+
+        Assert.Equal(
+            employeeId,
+            repository.RequestedEmployeeId);
 
         Assert.Equal(
             year,
@@ -238,7 +277,7 @@ public sealed class GetLeaveBalanceQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ForwardsCancellationTokenAndNullExcludedIdToRepository()
+    public async Task Handle_ForwardsCancellationTokenAndNullExcludedIdToDependencies()
     {
         var employeeId =
             Guid.NewGuid();
@@ -249,13 +288,17 @@ public sealed class GetLeaveBalanceQueryHandlerTests
         var repository =
             new FakeLeaveBalanceReadRepository();
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                employeeId);
+
         var handler =
             new GetLeaveBalanceQueryHandler(
-                repository);
+                repository,
+                currentUserAccessService);
 
         var query =
             new GetLeaveBalanceQuery(
-                employeeId,
                 leaveTypeId,
                 2026);
 
@@ -271,6 +314,11 @@ public sealed class GetLeaveBalanceQueryHandlerTests
 
         Assert.Equal(
             cancellationToken,
+            currentUserAccessService
+                .ReceivedCancellationToken);
+
+        Assert.Equal(
+            cancellationToken,
             repository.RequestedCancellationToken);
 
         Assert.Null(
@@ -279,6 +327,21 @@ public sealed class GetLeaveBalanceQueryHandlerTests
         Assert.Equal(
             1,
             repository.GetBalanceCallCount);
+    }
+
+    private static FakeCurrentUserAccessService
+        CreateCurrentUserAccessService(
+            Guid employeeId)
+    {
+        return new FakeCurrentUserAccessService
+        {
+            Result =
+                new CurrentUserAccess(
+                    Guid.NewGuid(),
+                    employeeId,
+                    "irem@example.com",
+                    EmployeeRole.Employee)
+        };
     }
 
     private static LeaveBalanceDto CreateLeaveBalanceDto(

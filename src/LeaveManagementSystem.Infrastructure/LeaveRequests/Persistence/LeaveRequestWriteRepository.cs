@@ -21,6 +21,19 @@ public sealed class LeaveRequestWriteRepository(
                 cancellationToken);
     }
 
+    public Task<LeaveRequest?> GetForModificationForEmployeeAsync(
+        Guid id,
+        Guid employeeId,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.LeaveRequests
+            .FirstOrDefaultAsync(
+                leaveRequest =>
+                    leaveRequest.Id == id
+                    && leaveRequest.EmployeeId == employeeId,
+                cancellationToken);
+    }
+
     public Task<bool> ActiveEmployeeExistsAsync(
         Guid employeeId,
         CancellationToken cancellationToken = default)

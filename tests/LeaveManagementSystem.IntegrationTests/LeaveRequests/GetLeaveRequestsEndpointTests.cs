@@ -16,24 +16,27 @@ public sealed class GetLeaveRequestsEndpointTests(
     : HrIntegrationTestBase(factory)
 {
     [Fact]
-    public async Task GetLeaveRequests_ReturnsProjectedRequestsOrderedByCreatedAtDescending()
+    public async Task GetLeaveRequests_ReturnsOnlyCurrentUsersRequestsOrderedByCreatedAtDescending()
     {
         await EnsureDatabaseReadyAsync();
 
         var departmentId =
             await CreateDepartmentAsync();
 
-        Guid? employeeId = null;
+        Guid? otherEmployeeId = null;
 
-        var olderLeaveRequestId =
+        var olderOwnLeaveRequestId =
             Guid.NewGuid();
 
-        var newerLeaveRequestId =
+        var newerOwnLeaveRequestId =
+            Guid.NewGuid();
+
+        var otherEmployeesLeaveRequestId =
             Guid.NewGuid();
 
         try
         {
-            employeeId =
+            otherEmployeeId =
                 await CreateEmployeeViaApiAsync(
                     departmentId);
 
@@ -57,35 +60,78 @@ public sealed class GetLeaveRequestsEndpointTests(
                     0,
                     DateTimeKind.Utc);
 
-            var olderLeaveRequest =
+            var otherEmployeesCreatedAtUtc =
+                new DateTime(
+                    2026,
+                    8,
+                    1,
+                    12,
+                    0,
+                    0,
+                    DateTimeKind.Utc);
+
+            var olderOwnLeaveRequest =
                 new LeaveRequest
                 {
-                    Id = olderLeaveRequestId,
-                    EmployeeId = employeeId.Value,
-                    LeaveTypeId = AnnualLeaveTypeId,
-                    Reason = "Older integration leave request.",
-                    CreatedAtUtc = olderCreatedAtUtc,
-                    UpdatedAtUtc = null
+                    Id =
+                        olderOwnLeaveRequestId,
+                    EmployeeId =
+                        HrEmployeeId,
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+                    Reason =
+                        "Older own integration leave request.",
+                    CreatedAtUtc =
+                        olderCreatedAtUtc,
+                    UpdatedAtUtc =
+                        null
                 };
 
-            olderLeaveRequest.SetDateRange(
+            olderOwnLeaveRequest.SetDateRange(
                 new DateOnly(2026, 9, 10),
                 new DateOnly(2026, 9, 11));
 
-            var newerLeaveRequest =
+            var newerOwnLeaveRequest =
                 new LeaveRequest
                 {
-                    Id = newerLeaveRequestId,
-                    EmployeeId = employeeId.Value,
-                    LeaveTypeId = AnnualLeaveTypeId,
-                    Reason = "Newer integration leave request.",
-                    CreatedAtUtc = newerCreatedAtUtc,
-                    UpdatedAtUtc = null
+                    Id =
+                        newerOwnLeaveRequestId,
+                    EmployeeId =
+                        HrEmployeeId,
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+                    Reason =
+                        "Newer own integration leave request.",
+                    CreatedAtUtc =
+                        newerCreatedAtUtc,
+                    UpdatedAtUtc =
+                        null
                 };
 
-            newerLeaveRequest.SetDateRange(
+            newerOwnLeaveRequest.SetDateRange(
                 new DateOnly(2026, 10, 20),
                 new DateOnly(2026, 10, 22));
+
+            var otherEmployeesLeaveRequest =
+                new LeaveRequest
+                {
+                    Id =
+                        otherEmployeesLeaveRequestId,
+                    EmployeeId =
+                        otherEmployeeId.Value,
+                    LeaveTypeId =
+                        AnnualLeaveTypeId,
+                    Reason =
+                        "Another employee's leave request.",
+                    CreatedAtUtc =
+                        otherEmployeesCreatedAtUtc,
+                    UpdatedAtUtc =
+                        null
+                };
+
+            otherEmployeesLeaveRequest.SetDateRange(
+                new DateOnly(2026, 11, 10),
+                new DateOnly(2026, 11, 12));
 
             using (var scope =
                    _factory.Services.CreateScope())
@@ -95,14 +141,15 @@ public sealed class GetLeaveRequestsEndpointTests(
                         .GetRequiredService<AppDbContext>();
 
                 dbContext.LeaveRequests.AddRange(
-                    olderLeaveRequest,
-                    newerLeaveRequest);
+                    olderOwnLeaveRequest,
+                    newerOwnLeaveRequest,
+                    otherEmployeesLeaveRequest);
 
                 await dbContext.SaveChangesAsync();
             }
 
             using var response =
-                await _client.GetAsync(
+                await HrClient.GetAsync(
                     "/api/leave-requests");
 
             Assert.Equal(
@@ -118,17 +165,30 @@ public sealed class GetLeaveRequestsEndpointTests(
             Assert.NotNull(
                 leaveRequests);
 
+            Assert.DoesNotContain(
+                leaveRequests!,
+                leaveRequest =>
+                    leaveRequest.Id ==
+                    otherEmployeesLeaveRequestId);
+
+            Assert.All(
+                leaveRequests,
+                leaveRequest =>
+                    Assert.Equal(
+                        HrEmployeeId,
+                        leaveRequest.EmployeeId));
+
             var olderIndex =
-                leaveRequests!.FindIndex(
+                leaveRequests.FindIndex(
                     leaveRequest =>
                         leaveRequest.Id ==
-                        olderLeaveRequestId);
+                        olderOwnLeaveRequestId);
 
             var newerIndex =
                 leaveRequests.FindIndex(
                     leaveRequest =>
                         leaveRequest.Id ==
-                        newerLeaveRequestId);
+                        newerOwnLeaveRequestId);
 
             Assert.True(
                 olderIndex >= 0);
@@ -143,15 +203,15 @@ public sealed class GetLeaveRequestsEndpointTests(
                 leaveRequests[newerIndex];
 
             Assert.Equal(
-                newerLeaveRequestId,
+                newerOwnLeaveRequestId,
                 projectedLeaveRequest.Id);
 
             Assert.Equal(
-                employeeId.Value,
+                HrEmployeeId,
                 projectedLeaveRequest.EmployeeId);
 
             Assert.Equal(
-                "Integration LeaveEmployee",
+                "Integration HrAdministrator",
                 projectedLeaveRequest.EmployeeFullName);
 
             Assert.Equal(
@@ -179,7 +239,7 @@ public sealed class GetLeaveRequestsEndpointTests(
                 projectedLeaveRequest.Status);
 
             Assert.Equal(
-                "Newer integration leave request.",
+                "Newer own integration leave request.",
                 projectedLeaveRequest.Reason);
 
             Assert.Null(
@@ -216,9 +276,11 @@ public sealed class GetLeaveRequestsEndpointTests(
                         .Where(
                             leaveRequest =>
                                 leaveRequest.Id ==
-                                olderLeaveRequestId
+                                olderOwnLeaveRequestId
                                 || leaveRequest.Id ==
-                                newerLeaveRequestId)
+                                newerOwnLeaveRequestId
+                                || leaveRequest.Id ==
+                                otherEmployeesLeaveRequestId)
                         .ToListAsync();
 
                 if (leaveRequests.Count > 0)
@@ -232,7 +294,7 @@ public sealed class GetLeaveRequestsEndpointTests(
 
             await CleanupAsync(
                 leaveRequestId: null,
-                employeeId: employeeId,
+                employeeId: otherEmployeeId,
                 departmentId: departmentId);
         }
     }

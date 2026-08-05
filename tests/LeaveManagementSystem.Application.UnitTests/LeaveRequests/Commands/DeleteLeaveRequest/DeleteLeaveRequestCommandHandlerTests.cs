@@ -1,5 +1,8 @@
-﻿using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
+﻿using LeaveManagementSystem.Application.Authentication.Models;
+using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.DeleteLeaveRequest;
+using LeaveManagementSystem.Application.UnitTests.TestDoubles;
 using LeaveManagementSystem.Domain.Entities;
 using LeaveManagementSystem.Domain.Enums;
 using Xunit;
@@ -18,9 +21,14 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
             new FakeLeaveRequestWriteRepository(
                 callSequence);
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                Guid.NewGuid());
+
         var handler =
             new DeleteLeaveRequestCommandHandler(
-                writeRepository);
+                writeRepository,
+                currentUserAccessService);
 
         using var cancellationTokenSource =
             new CancellationTokenSource();
@@ -32,6 +40,65 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
             () => handler.Handle(
                 null!,
                 cancellationToken));
+
+        Assert.Equal(
+            0,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.GetForModificationCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.RemoveCallCount);
+
+        Assert.Equal(
+            0,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Empty(
+            writeRepository.ReceivedCancellationTokens);
+
+        Assert.Empty(
+            callSequence);
+    }
+
+    [Fact]
+    public async Task Handle_CurrentUserAccessMissing_ThrowsForbiddenBeforeRepositoryCall()
+    {
+        var callSequence =
+            new List<string>();
+
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository(
+                callSequence);
+
+        var currentUserAccessService =
+            new FakeCurrentUserAccessService
+            {
+                Result = null
+            };
+
+        var handler =
+            new DeleteLeaveRequestCommandHandler(
+                writeRepository,
+                currentUserAccessService);
+
+        var exception =
+            await Assert.ThrowsAsync<ForbiddenOperationException>(
+                () => handler.Handle(
+                    new DeleteLeaveRequestCommand(
+                        Guid.NewGuid()),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "Only current active employees can use leave self-service operations.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            currentUserAccessService.CallCount);
 
         Assert.Equal(
             0,
@@ -58,6 +125,9 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
         var leaveRequestId =
             Guid.NewGuid();
 
+        var employeeId =
+            Guid.NewGuid();
+
         var callSequence =
             new List<string>();
 
@@ -69,9 +139,14 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
                     null
             };
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                employeeId);
+
         var handler =
             new DeleteLeaveRequestCommandHandler(
-                writeRepository);
+                writeRepository,
+                currentUserAccessService);
 
         var command =
             new DeleteLeaveRequestCommand(
@@ -93,11 +168,23 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
 
         Assert.Equal(
             1,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            cancellationToken,
+            currentUserAccessService.ReceivedCancellationToken);
+
+        Assert.Equal(
+            1,
             writeRepository.GetForModificationCallCount);
 
         Assert.Equal(
             leaveRequestId,
             writeRepository.RequestedId);
+
+        Assert.Equal(
+            employeeId,
+            writeRepository.RequestedEmployeeId);
 
         Assert.Equal(
             0,
@@ -141,9 +228,14 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
                     leaveRequest
             };
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                leaveRequest.EmployeeId);
+
         var handler =
             new DeleteLeaveRequestCommandHandler(
-                writeRepository);
+                writeRepository,
+                currentUserAccessService);
 
         var command =
             new DeleteLeaveRequestCommand(
@@ -166,6 +258,14 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
         Assert.Equal(
             1,
             writeRepository.GetForModificationCallCount);
+
+        Assert.Equal(
+            leaveRequest.Id,
+            writeRepository.RequestedId);
+
+        Assert.Equal(
+            leaveRequest.EmployeeId,
+            writeRepository.RequestedEmployeeId);
 
         Assert.Equal(
             0,
@@ -207,9 +307,14 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
                     true
             };
 
+        var currentUserAccessService =
+            CreateCurrentUserAccessService(
+                leaveRequest.EmployeeId);
+
         var handler =
             new DeleteLeaveRequestCommandHandler(
-                writeRepository);
+                writeRepository,
+                currentUserAccessService);
 
         var command =
             new DeleteLeaveRequestCommand(
@@ -231,11 +336,23 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
 
         Assert.Equal(
             1,
+            currentUserAccessService.CallCount);
+
+        Assert.Equal(
+            cancellationToken,
+            currentUserAccessService.ReceivedCancellationToken);
+
+        Assert.Equal(
+            1,
             writeRepository.GetForModificationCallCount);
 
         Assert.Equal(
             leaveRequest.Id,
             writeRepository.RequestedId);
+
+        Assert.Equal(
+            leaveRequest.EmployeeId,
+            writeRepository.RequestedEmployeeId);
 
         Assert.Equal(
             1,
@@ -265,6 +382,21 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
                 "SaveChanges"
             },
             callSequence);
+    }
+
+    private static FakeCurrentUserAccessService
+        CreateCurrentUserAccessService(
+            Guid employeeId)
+    {
+        return new FakeCurrentUserAccessService
+        {
+            Result =
+                new CurrentUserAccess(
+                    Guid.NewGuid(),
+                    employeeId,
+                    "irem@example.com",
+                    EmployeeRole.Employee)
+        };
     }
 
     private static LeaveRequest CreateLeaveRequest(
@@ -349,6 +481,12 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
             private set;
         }
 
+        public Guid RequestedEmployeeId
+        {
+            get;
+            private set;
+        }
+
         public int GetForModificationCallCount
         {
             get;
@@ -383,10 +521,22 @@ public sealed class DeleteLeaveRequestCommandHandlerTests
             Guid id,
             CancellationToken cancellationToken = default)
         {
+            throw new InvalidOperationException(
+                "Unexpected repository call.");
+        }
+
+        public Task<LeaveRequest?> GetForModificationForEmployeeAsync(
+            Guid id,
+            Guid employeeId,
+            CancellationToken cancellationToken = default)
+        {
             GetForModificationCallCount++;
 
             RequestedId =
                 id;
+
+            RequestedEmployeeId =
+                employeeId;
 
             ReceivedCancellationTokens.Add(
                 cancellationToken);

@@ -8,6 +8,11 @@ public interface ILeaveRequestWriteRepository
         Guid id,
         CancellationToken cancellationToken = default);
 
+    Task<LeaveRequest?> GetForModificationForEmployeeAsync(
+        Guid id,
+        Guid employeeId,
+        CancellationToken cancellationToken = default);
+
     Task<bool> ActiveEmployeeExistsAsync(
         Guid employeeId,
         CancellationToken cancellationToken = default);

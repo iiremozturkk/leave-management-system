@@ -1,4 +1,6 @@
-﻿using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
+﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Rules;
 using LeaveManagementSystem.Domain.Entities;
@@ -8,7 +10,8 @@ namespace LeaveManagementSystem.Application.LeaveRequests.Commands.CreateLeaveRe
 
 public sealed class CreateLeaveRequestCommandHandler(
     ILeaveRequestWriteRepository writeRepository,
-    ILeaveRequestReadRepository readRepository)
+    ILeaveRequestReadRepository readRepository,
+    ICurrentUserAccessService currentUserAccessService)
     : IRequestHandler<CreateLeaveRequestCommand, LeaveRequestDto>
 {
     public async Task<LeaveRequestDto> Handle(
@@ -18,6 +21,19 @@ public sealed class CreateLeaveRequestCommandHandler(
         ArgumentNullException.ThrowIfNull(
             request);
 
+        var currentUserAccess =
+            await currentUserAccessService.GetAsync(
+                cancellationToken);
+
+        if (currentUserAccess is null)
+        {
+            throw new ForbiddenOperationException(
+                "Only current active employees can use leave self-service operations.");
+        }
+
+        var employeeId =
+            currentUserAccess.EmployeeId;
+
         var reason =
             LeaveRequestRules.NormalizeReason(
                 request.Reason);
@@ -25,12 +41,6 @@ public sealed class CreateLeaveRequestCommandHandler(
         LeaveRequestRules.EnsureSupportedDateRange(
             request.StartDate,
             request.EndDate);
-
-        await LeaveRequestBusinessRules
-            .EnsureActiveEmployeeExistsAsync(
-                writeRepository,
-                request.EmployeeId,
-                cancellationToken);
 
         var leaveType =
             await LeaveRequestBusinessRules
@@ -42,7 +52,7 @@ public sealed class CreateLeaveRequestCommandHandler(
         await LeaveRequestBusinessRules
             .EnsureNoOverlapAsync(
                 writeRepository,
-                request.EmployeeId,
+                employeeId,
                 request.StartDate,
                 request.EndDate,
                 excludedLeaveRequestId: null,
@@ -51,7 +61,7 @@ public sealed class CreateLeaveRequestCommandHandler(
         await LeaveRequestBusinessRules
             .EnsureEnoughBalanceAsync(
                 writeRepository,
-                request.EmployeeId,
+                employeeId,
                 leaveType,
                 request.StartDate,
                 request.EndDate,
@@ -61,7 +71,7 @@ public sealed class CreateLeaveRequestCommandHandler(
         var leaveRequest =
             new LeaveRequest
             {
-                EmployeeId = request.EmployeeId,
+                EmployeeId = employeeId,
                 LeaveTypeId = request.LeaveTypeId,
                 Reason = reason
             };

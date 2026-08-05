@@ -1,4 +1,5 @@
-﻿using LeaveManagementSystem.Application.LeaveRequests.Commands.ApproveLeaveRequest;
+﻿using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.LeaveRequests.Commands.ApproveLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.CreateLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.DeleteLeaveRequest;
 using LeaveManagementSystem.Application.LeaveRequests.Commands.RejectLeaveRequest;
@@ -21,6 +22,8 @@ public sealed class LeaveRequestsController(
     : ControllerBase
 {
     [HttpGet]
+    [Authorize(
+        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
     [ProducesResponseType(
         typeof(IReadOnlyList<LeaveRequestDto>),
         StatusCodes.Status200OK)]
@@ -35,6 +38,8 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(
+        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
     [ProducesResponseType(
         typeof(LeaveRequestDto),
         StatusCodes.Status200OK)]
@@ -56,6 +61,8 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpGet("balance")]
+    [Authorize(
+        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
     [ProducesResponseType(
         typeof(LeaveBalanceDto),
         StatusCodes.Status200OK)]
@@ -64,7 +71,6 @@ public sealed class LeaveRequestsController(
         StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LeaveBalanceDto>> GetBalance(
-        [FromQuery] Guid employeeId,
         [FromQuery] Guid leaveTypeId,
         [FromQuery] int year,
         CancellationToken cancellationToken)
@@ -73,7 +79,6 @@ public sealed class LeaveRequestsController(
         {
             var balance = await sender.Send(
                 new GetLeaveBalanceQuery(
-                    employeeId,
                     leaveTypeId,
                     year),
                 cancellationToken);
@@ -86,6 +91,7 @@ public sealed class LeaveRequestsController(
             return Ok(balance);
         }
         catch (InvalidOperationException exception)
+            when (exception is not ForbiddenOperationException)
         {
             return BadRequestProblem(
                 exception.Message);
@@ -93,6 +99,8 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpPost]
+    [Authorize(
+        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
     [ProducesResponseType(
         typeof(LeaveRequestDto),
         StatusCodes.Status201Created)]
@@ -107,7 +115,6 @@ public sealed class LeaveRequestsController(
         {
             var leaveRequest = await sender.Send(
                 new CreateLeaveRequestCommand(
-                    request.EmployeeId,
                     request.LeaveTypeId,
                     request.StartDate,
                     request.EndDate,
@@ -120,6 +127,7 @@ public sealed class LeaveRequestsController(
                 leaveRequest);
         }
         catch (InvalidOperationException exception)
+            when (exception is not ForbiddenOperationException)
         {
             return BadRequestProblem(
                 exception.Message);
@@ -127,6 +135,8 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(
+        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
     [ProducesResponseType(
         typeof(LeaveRequestDto),
         StatusCodes.Status200OK)]
@@ -158,6 +168,7 @@ public sealed class LeaveRequestsController(
             return Ok(leaveRequest);
         }
         catch (InvalidOperationException exception)
+            when (exception is not ForbiddenOperationException)
         {
             return BadRequestProblem(
                 exception.Message);
@@ -199,6 +210,7 @@ public sealed class LeaveRequestsController(
             return Ok(leaveRequest);
         }
         catch (InvalidOperationException exception)
+            when (exception is not ForbiddenOperationException)
         {
             return BadRequestProblem(
                 exception.Message);
@@ -240,6 +252,7 @@ public sealed class LeaveRequestsController(
             return Ok(leaveRequest);
         }
         catch (InvalidOperationException exception)
+            when (exception is not ForbiddenOperationException)
         {
             return BadRequestProblem(
                 exception.Message);
@@ -247,6 +260,8 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(
+        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(
         typeof(ProblemDetails),
@@ -272,6 +287,7 @@ public sealed class LeaveRequestsController(
             return NoContent();
         }
         catch (InvalidOperationException exception)
+            when (exception is not ForbiddenOperationException)
         {
             return BadRequestProblem(
                 exception.Message);

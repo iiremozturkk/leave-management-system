@@ -114,6 +114,104 @@ public sealed class SwaggerAuthorizationDocumentationTests(
             operation);
     }
 
+    [Theory]
+    [InlineData("/api/leave-requests", "get")]
+    [InlineData("/api/leave-requests/{id}", "get")]
+    [InlineData("/api/leave-requests/balance", "get")]
+    [InlineData("/api/leave-requests", "post")]
+    [InlineData("/api/leave-requests/{id}", "put")]
+    [InlineData("/api/leave-requests/{id}", "delete")]
+    public async Task SwaggerDocument_LeaveSelfServiceEndpoint_RequiresBearerSecurity(
+    string expectedPath,
+    string httpMethod)
+    {
+        using var document =
+            await GetSwaggerDocumentAsync();
+
+        var operation =
+            GetOperation(
+                document,
+                expectedPath,
+                httpMethod);
+
+        AssertRequiresBearerSecurity(
+            operation);
+    }
+
+    [Fact]
+    public async Task SwaggerDocument_LeaveSelfServiceContract_DoesNotExposeEmployeeIdentity()
+    {
+        using var document =
+            await GetSwaggerDocumentAsync();
+
+        var schemas =
+            document.RootElement
+                .GetProperty("components")
+                .GetProperty("schemas");
+
+        var createRequestSchema =
+            schemas.GetProperty(
+                "CreateLeaveRequestRequest");
+
+        var createProperties =
+            createRequestSchema.GetProperty(
+                "properties");
+
+        Assert.False(
+            createProperties.TryGetProperty(
+                "employeeId",
+                out _));
+
+        Assert.True(
+            createProperties.TryGetProperty(
+                "leaveTypeId",
+                out _));
+
+        Assert.True(
+            createProperties.TryGetProperty(
+                "startDate",
+                out _));
+
+        Assert.True(
+            createProperties.TryGetProperty(
+                "endDate",
+                out _));
+
+        Assert.True(
+            createProperties.TryGetProperty(
+                "reason",
+                out _));
+
+        var balanceOperation =
+            GetOperation(
+                document,
+                "/api/leave-requests/balance",
+                "get");
+
+        var parameterNames =
+            balanceOperation
+                .GetProperty("parameters")
+                .EnumerateArray()
+                .Select(
+                    parameter =>
+                        parameter
+                            .GetProperty("name")
+                            .GetString())
+                .ToArray();
+
+        Assert.DoesNotContain(
+            "employeeId",
+            parameterNames);
+
+        Assert.Contains(
+            "leaveTypeId",
+            parameterNames);
+
+        Assert.Contains(
+            "year",
+            parameterNames);
+    }
+
     [Fact]
     public async Task SwaggerDocument_ReviewRequestSchema_DoesNotExposeReviewerIdentity()
     {

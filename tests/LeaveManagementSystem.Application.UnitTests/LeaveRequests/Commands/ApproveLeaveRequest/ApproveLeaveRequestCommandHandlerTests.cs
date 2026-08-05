@@ -1459,6 +1459,15 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             return Task.FromResult(LeaveRequestResult);
         }
 
+        public Task<LeaveRequest?> GetForModificationForEmployeeAsync(
+            Guid id,
+            Guid employeeId,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException(
+                "Unexpected repository call.");
+        }
+
         public Task<bool> ActiveEmployeeExistsAsync(
             Guid employeeId,
             CancellationToken cancellationToken = default)

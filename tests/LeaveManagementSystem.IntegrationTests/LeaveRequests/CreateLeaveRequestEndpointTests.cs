@@ -19,32 +19,22 @@ public sealed class CreateLeaveRequestEndpointTests(
     {
         await EnsureDatabaseReadyAsync();
 
-        var departmentId =
-            await CreateDepartmentAsync();
+        var startDate =
+            new DateOnly(
+                2026,
+                7,
+                15);
 
-        Guid? employeeId = null;
+        var endDate =
+            new DateOnly(
+                2026,
+                7,
+                17);
 
         try
         {
-            employeeId =
-                await CreateEmployeeViaApiAsync(
-                    departmentId);
-
-            var startDate =
-                new DateOnly(
-                    2026,
-                    7,
-                    15);
-
-            var endDate =
-                new DateOnly(
-                    2026,
-                    7,
-                    17);
-
             using var response =
                 await PostCreateAsync(
-                    employeeId.Value,
                     AnnualLeaveTypeId,
                     startDate,
                     endDate,
@@ -67,11 +57,11 @@ public sealed class CreateLeaveRequestEndpointTests(
                 createdLeaveRequest!.Id);
 
             Assert.Equal(
-                employeeId.Value,
+                HrEmployeeId,
                 createdLeaveRequest.EmployeeId);
 
             Assert.Equal(
-                "Integration LeaveEmployee",
+                "Integration HrAdministrator",
                 createdLeaveRequest.EmployeeFullName);
 
             Assert.Equal(
@@ -138,7 +128,7 @@ public sealed class CreateLeaveRequestEndpointTests(
                     .Where(
                         leaveRequest =>
                             leaveRequest.EmployeeId ==
-                            employeeId.Value)
+                            HrEmployeeId)
                     .ToListAsync();
 
             var persistedLeaveRequest =
@@ -175,9 +165,7 @@ public sealed class CreateLeaveRequestEndpointTests(
         }
         finally
         {
-            await CleanupEmployeeGraphAsync(
-                employeeId,
-                departmentId);
+            await CleanupCurrentUsersLeaveRequestsAsync();
         }
     }
 
@@ -188,7 +176,6 @@ public sealed class CreateLeaveRequestEndpointTests(
 
         using var response =
             await PostCreateAsync(
-                Guid.NewGuid(),
                 AnnualLeaveTypeId,
                 new DateOnly(2026, 7, 15),
                 new DateOnly(2026, 7, 17),
@@ -206,7 +193,6 @@ public sealed class CreateLeaveRequestEndpointTests(
 
         using var response =
             await PostCreateAsync(
-                Guid.NewGuid(),
                 AnnualLeaveTypeId,
                 new DateOnly(2026, 7, 15),
                 new DateOnly(2026, 7, 17),
@@ -226,7 +212,6 @@ public sealed class CreateLeaveRequestEndpointTests(
 
         using var response =
             await PostCreateAsync(
-                Guid.NewGuid(),
                 AnnualLeaveTypeId,
                 new DateOnly(2026, 7, 17),
                 new DateOnly(2026, 7, 15),
@@ -247,7 +232,6 @@ public sealed class CreateLeaveRequestEndpointTests(
 
         using var response =
             await PostCreateAsync(
-                Guid.NewGuid(),
                 AnnualLeaveTypeId,
                 new DateOnly(year, 7, 15),
                 new DateOnly(year, 7, 17),
@@ -258,22 +242,61 @@ public sealed class CreateLeaveRequestEndpointTests(
             "Year must be between 2000 and 2100.");
     }
 
-    [Fact]
-    public async Task Create_EmployeeIdIsEmpty_ReturnsBadRequest()
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    [InlineData("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")]
+    public async Task Create_EmployeeIdPayloadCannotOverrideCurrentUser(
+        string employeeIdText)
     {
         await EnsureDatabaseReadyAsync();
 
-        using var response =
-            await PostCreateAsync(
-                Guid.Empty,
-                AnnualLeaveTypeId,
-                new DateOnly(2026, 7, 15),
-                new DateOnly(2026, 7, 17),
-                "Empty employee id.");
+        try
+        {
+            var request = new
+            {
+                employeeId =
+                    Guid.Parse(
+                        employeeIdText),
+                leaveTypeId =
+                    AnnualLeaveTypeId,
+                startDate =
+                    new DateOnly(2026, 8, 15),
+                endDate =
+                    new DateOnly(2026, 8, 17),
+                reason =
+                    "Employee id override attempt."
+            };
 
-        await AssertInvalidLeaveRequestProblemDetailsAsync(
-            response,
-            "Employee id cannot be empty.");
+            using var response =
+                await HrClient.PostAsJsonAsync(
+                    "/api/leave-requests",
+                    request);
+
+            Assert.Equal(
+                HttpStatusCode.Created,
+                response.StatusCode);
+
+            var createdLeaveRequest =
+                await response.Content
+                    .ReadFromJsonAsync<LeaveRequestResponse>(
+                        JsonOptions);
+
+            Assert.NotNull(
+                createdLeaveRequest);
+
+            Assert.Equal(
+                HrEmployeeId,
+                createdLeaveRequest!.EmployeeId);
+
+            Assert.NotEqual(
+                Guid.Parse(
+                    employeeIdText),
+                createdLeaveRequest.EmployeeId);
+        }
+        finally
+        {
+            await CleanupCurrentUsersLeaveRequestsAsync();
+        }
     }
 
     [Fact]
@@ -281,98 +304,39 @@ public sealed class CreateLeaveRequestEndpointTests(
     {
         await EnsureDatabaseReadyAsync();
 
-        var departmentId =
-            await CreateDepartmentAsync();
-
-        Guid? employeeId = null;
-
-        try
-        {
-            employeeId =
-                await CreateEmployeeViaApiAsync(
-                    departmentId);
-
-            using var response =
-                await PostCreateAsync(
-                    employeeId.Value,
-                    Guid.Empty,
-                    new DateOnly(2026, 7, 15),
-                    new DateOnly(2026, 7, 17),
-                    "Empty leave type id.");
-
-            await AssertInvalidLeaveRequestProblemDetailsAsync(
-                response,
-                "Leave type id cannot be empty.");
-
-            await AssertNoLeaveRequestsForEmployeeAsync(
-                employeeId.Value);
-        }
-        finally
-        {
-            await CleanupEmployeeGraphAsync(
-                employeeId,
-                departmentId);
-        }
-    }
-
-    [Fact]
-    public async Task Create_EmployeeDoesNotExist_ReturnsBadRequest()
-    {
-        await EnsureDatabaseReadyAsync();
-
         using var response =
             await PostCreateAsync(
-                Guid.NewGuid(),
-                AnnualLeaveTypeId,
+                Guid.Empty,
                 new DateOnly(2026, 7, 15),
                 new DateOnly(2026, 7, 17),
-                "Missing employee.");
+                "Empty leave type id.");
 
         await AssertInvalidLeaveRequestProblemDetailsAsync(
             response,
-            "Employee does not exist or is not active.");
+            "Leave type id cannot be empty.");
+
+        await AssertNoLeaveRequestsForCurrentUserAsync();
     }
 
     [Fact]
-    public async Task Create_EmployeeIsInactive_ReturnsBadRequestWithoutPersisting()
+    public async Task Create_CurrentEmployeeIsInactive_ReturnsForbiddenWithoutPersisting()
     {
         await EnsureDatabaseReadyAsync();
 
-        var departmentId =
-            await CreateDepartmentAsync();
+        await DeactivateCurrentEmployeeAsync();
 
-        Guid? employeeId = null;
+        using var response =
+            await PostCreateAsync(
+                AnnualLeaveTypeId,
+                new DateOnly(2026, 7, 15),
+                new DateOnly(2026, 7, 17),
+                "Inactive employee.");
 
-        try
-        {
-            employeeId =
-                await CreateEmployeeViaApiAsync(
-                    departmentId);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            response.StatusCode);
 
-            await DeactivateEmployeeAsync(
-                employeeId.Value);
-
-            using var response =
-                await PostCreateAsync(
-                    employeeId.Value,
-                    AnnualLeaveTypeId,
-                    new DateOnly(2026, 7, 15),
-                    new DateOnly(2026, 7, 17),
-                    "Inactive employee.");
-
-            await AssertInvalidLeaveRequestProblemDetailsAsync(
-                response,
-                "Employee does not exist or is not active.");
-
-            await AssertNoLeaveRequestsForEmployeeAsync(
-                employeeId.Value);
-        }
-        finally
-        {
-            await CleanupEmployeeGraphAsync(
-                employeeId,
-                departmentId);
-        }
+        await AssertNoLeaveRequestsForCurrentUserAsync();
     }
 
     [Fact]
@@ -380,42 +344,21 @@ public sealed class CreateLeaveRequestEndpointTests(
     {
         await EnsureDatabaseReadyAsync();
 
-        var departmentId =
-            await CreateDepartmentAsync();
+        using var response =
+            await PostCreateAsync(
+                Guid.NewGuid(),
+                new DateOnly(2026, 7, 15),
+                new DateOnly(2026, 7, 17),
+                "Missing leave type.");
 
-        Guid? employeeId = null;
+        await AssertInvalidLeaveRequestProblemDetailsAsync(
+            response,
+            "Leave type does not exist.");
 
-        try
-        {
-            employeeId =
-                await CreateEmployeeViaApiAsync(
-                    departmentId);
-
-            using var response =
-                await PostCreateAsync(
-                    employeeId.Value,
-                    Guid.NewGuid(),
-                    new DateOnly(2026, 7, 15),
-                    new DateOnly(2026, 7, 17),
-                    "Missing leave type.");
-
-            await AssertInvalidLeaveRequestProblemDetailsAsync(
-                response,
-                "Leave type does not exist.");
-
-            await AssertNoLeaveRequestsForEmployeeAsync(
-                employeeId.Value);
-        }
-        finally
-        {
-            await CleanupEmployeeGraphAsync(
-                employeeId,
-                departmentId);
-        }
+        await AssertNoLeaveRequestsForCurrentUserAsync();
     }
 
     private async Task<HttpResponseMessage> PostCreateAsync(
-        Guid employeeId,
         Guid leaveTypeId,
         DateOnly startDate,
         DateOnly endDate,
@@ -423,20 +366,18 @@ public sealed class CreateLeaveRequestEndpointTests(
     {
         var request = new
         {
-            employeeId,
             leaveTypeId,
             startDate,
             endDate,
             reason
         };
 
-        return await _client.PostAsJsonAsync(
+        return await HrClient.PostAsJsonAsync(
             "/api/leave-requests",
             request);
     }
 
-    private async Task DeactivateEmployeeAsync(
-        Guid employeeId)
+    private async Task DeactivateCurrentEmployeeAsync()
     {
         using var scope =
             _factory.Services.CreateScope();
@@ -449,15 +390,15 @@ public sealed class CreateLeaveRequestEndpointTests(
             await dbContext.Employees
                 .SingleAsync(
                     employee =>
-                        employee.Id == employeeId);
+                        employee.Id ==
+                        HrEmployeeId);
 
         employee.IsActive = false;
 
         await dbContext.SaveChangesAsync();
     }
 
-    private async Task AssertNoLeaveRequestsForEmployeeAsync(
-        Guid employeeId)
+    private async Task AssertNoLeaveRequestsForCurrentUserAsync()
     {
         using var scope =
             _factory.Services.CreateScope();
@@ -472,16 +413,14 @@ public sealed class CreateLeaveRequestEndpointTests(
                 .CountAsync(
                     leaveRequest =>
                         leaveRequest.EmployeeId ==
-                        employeeId);
+                        HrEmployeeId);
 
         Assert.Equal(
             0,
             leaveRequestCount);
     }
 
-    private async Task CleanupEmployeeGraphAsync(
-        Guid? employeeId,
-        Guid? departmentId)
+    private async Task CleanupCurrentUsersLeaveRequestsAsync()
     {
         using var scope =
             _factory.Services.CreateScope();
@@ -490,53 +429,21 @@ public sealed class CreateLeaveRequestEndpointTests(
             scope.ServiceProvider
                 .GetRequiredService<AppDbContext>();
 
-        if (employeeId is not null)
+        var leaveRequests =
+            await dbContext.LeaveRequests
+                .Where(
+                    leaveRequest =>
+                        leaveRequest.EmployeeId ==
+                        HrEmployeeId)
+                .ToListAsync();
+
+        if (leaveRequests.Count > 0)
         {
-            var leaveRequests =
-                await dbContext.LeaveRequests
-                    .Where(
-                        leaveRequest =>
-                            leaveRequest.EmployeeId ==
-                            employeeId.Value)
-                    .ToListAsync();
+            dbContext.LeaveRequests.RemoveRange(
+                leaveRequests);
 
-            if (leaveRequests.Count > 0)
-            {
-                dbContext.LeaveRequests.RemoveRange(
-                    leaveRequests);
-            }
-
-            var employee =
-                await dbContext.Employees
-                    .FirstOrDefaultAsync(
-                        employee =>
-                            employee.Id ==
-                            employeeId.Value);
-
-            if (employee is not null)
-            {
-                dbContext.Employees.Remove(
-                    employee);
-            }
+            await dbContext.SaveChangesAsync();
         }
-
-        if (departmentId is not null)
-        {
-            var department =
-                await dbContext.Departments
-                    .FirstOrDefaultAsync(
-                        department =>
-                            department.Id ==
-                            departmentId.Value);
-
-            if (department is not null)
-            {
-                dbContext.Departments.Remove(
-                    department);
-            }
-        }
-
-        await dbContext.SaveChangesAsync();
     }
 
     private static void AssertCreatedLocation(

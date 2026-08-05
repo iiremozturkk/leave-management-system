@@ -1,4 +1,6 @@
-﻿using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
+﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using LeaveManagementSystem.Application.LeaveRequests.Rules;
 using MediatR;
@@ -7,7 +9,8 @@ namespace LeaveManagementSystem.Application.LeaveRequests.Commands.UpdateLeaveRe
 
 public sealed class UpdateLeaveRequestCommandHandler(
     ILeaveRequestWriteRepository writeRepository,
-    ILeaveRequestReadRepository readRepository)
+    ILeaveRequestReadRepository readRepository,
+    ICurrentUserAccessService currentUserAccessService)
     : IRequestHandler<UpdateLeaveRequestCommand, LeaveRequestDto?>
 {
     public async Task<LeaveRequestDto?> Handle(
@@ -17,10 +20,22 @@ public sealed class UpdateLeaveRequestCommandHandler(
         ArgumentNullException.ThrowIfNull(
             request);
 
-        var leaveRequest =
-            await writeRepository.GetForModificationAsync(
-                request.Id,
+        var currentUserAccess =
+            await currentUserAccessService.GetAsync(
                 cancellationToken);
+
+        if (currentUserAccess is null)
+        {
+            throw new ForbiddenOperationException(
+                "Only current active employees can use leave self-service operations.");
+        }
+
+        var leaveRequest =
+            await writeRepository
+                .GetForModificationForEmployeeAsync(
+                    request.Id,
+                    currentUserAccess.EmployeeId,
+                    cancellationToken);
 
         if (leaveRequest is null)
         {

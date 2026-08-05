@@ -1,11 +1,14 @@
-﻿using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
+﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
+using LeaveManagementSystem.Application.Common.Exceptions;
+using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Dtos;
 using MediatR;
 
 namespace LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveBalance;
 
 public sealed class GetLeaveBalanceQueryHandler(
-    ILeaveBalanceReadRepository leaveBalanceReadRepository)
+    ILeaveBalanceReadRepository leaveBalanceReadRepository,
+    ICurrentUserAccessService currentUserAccessService)
     : IRequestHandler<
         GetLeaveBalanceQuery,
         LeaveBalanceDto?>
@@ -13,14 +16,21 @@ public sealed class GetLeaveBalanceQueryHandler(
     private const int MinSupportedYear = 2000;
     private const int MaxSupportedYear = 2100;
 
-    public Task<LeaveBalanceDto?> Handle(
+    public async Task<LeaveBalanceDto?> Handle(
         GetLeaveBalanceQuery request,
         CancellationToken cancellationToken)
     {
-        if (request.EmployeeId == Guid.Empty)
+        ArgumentNullException.ThrowIfNull(
+            request);
+
+        var currentUserAccess =
+            await currentUserAccessService.GetAsync(
+                cancellationToken);
+
+        if (currentUserAccess is null)
         {
-            throw new InvalidOperationException(
-                "Employee id cannot be empty.");
+            throw new ForbiddenOperationException(
+                "Only current active employees can use leave self-service operations.");
         }
 
         if (request.LeaveTypeId == Guid.Empty)
@@ -32,8 +42,8 @@ public sealed class GetLeaveBalanceQueryHandler(
         EnsureSupportedYear(
             request.Year);
 
-        return leaveBalanceReadRepository.GetBalanceAsync(
-            request.EmployeeId,
+        return await leaveBalanceReadRepository.GetBalanceAsync(
+            currentUserAccess.EmployeeId,
             request.LeaveTypeId,
             request.Year,
             excludedLeaveRequestId: null,

@@ -44,21 +44,25 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                                  testData,
                 "2026-08-10",
                 "2026-08-14",
                 "First leave request.");
 
             var overlapRequest = new
             {
-                employeeId = testData.EmployeeId,
                 leaveTypeId = AnnualLeaveTypeId,
                 startDate = "2026-08-12",
                 endDate = "2026-08-13",
                 reason = "Overlapping leave request."
             };
 
-            var response = await _client.PostAsJsonAsync("/api/leave-requests", overlapRequest);
+            using var response =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Post,
+                    "/api/leave-requests",
+                    testData.EmployeeAccessToken,
+                    overlapRequest);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -88,7 +92,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                                                     testData,
                 "2026-08-10",
                 "2026-08-14",
                 "Anonymous review authorization test.");
@@ -134,7 +138,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-08-10",
                 "2026-08-14",
                 "Approval scope test leave request.");
@@ -173,7 +177,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-08-10",
                 "2026-08-14",
                 "Role authorization test leave request.");
@@ -226,7 +230,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         {
             var balanceBefore =
                 await GetBalanceAsync(
-                    testData.EmployeeId,
+                    testData,
                     2026);
 
             Assert.Equal(
@@ -246,7 +250,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
                 balanceBefore.RemainingDays);
 
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-08-10",
                 "2026-08-14",
                 "Manager approval test leave request.");
@@ -287,7 +291,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
 
             var balanceAfter =
                 await GetBalanceAsync(
-                    testData.EmployeeId,
+                    testData,
                     2026);
 
             Assert.Equal(
@@ -323,7 +327,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-08-10",
                 "2026-08-14",
                 "Approved leave request.");
@@ -335,14 +339,18 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
 
             var exceedBalanceRequest = new
             {
-                employeeId = testData.EmployeeId,
                 leaveTypeId = AnnualLeaveTypeId,
                 startDate = "2026-09-01",
                 endDate = "2026-09-30",
                 reason = "Exceed balance test."
             };
 
-            var response = await _client.PostAsJsonAsync("/api/leave-requests", exceedBalanceRequest);
+            using var response =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Post,
+                    "/api/leave-requests",
+                    testData.EmployeeAccessToken,
+                    exceedBalanceRequest);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -369,7 +377,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-11-01",
                 "2026-11-20",
                 "Request exactly the remaining annual balance.");
@@ -383,7 +391,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
 
             Assert.Equal(LeaveRequestStatus.Approved, approvedLeaveRequest.Status);
 
-            var balanceAfter = await GetBalanceAsync(testData.EmployeeId, 2026);
+            var balanceAfter = await GetBalanceAsync(testData, 2026);
 
             Assert.Equal(20, balanceAfter.EntitledDays);
             Assert.Equal(20, balanceAfter.UsedDays);
@@ -405,7 +413,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2025-08-10",
                 "2025-08-14",
                 "Previous year approved leave request.");
@@ -415,14 +423,14 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
                 testData.ManagerAccessToken,
                 "Approved previous year leave.");
 
-            var previousYearBalance = await GetBalanceAsync(testData.EmployeeId, 2025);
+            var previousYearBalance = await GetBalanceAsync(testData, 2025);
 
             Assert.Equal(2025, previousYearBalance.Year);
             Assert.Equal(20, previousYearBalance.EntitledDays);
             Assert.Equal(5, previousYearBalance.UsedDays);
             Assert.Equal(15, previousYearBalance.RemainingDays);
 
-            var currentYearBalance = await GetBalanceAsync(testData.EmployeeId, 2026);
+            var currentYearBalance = await GetBalanceAsync(testData, 2026);
 
             Assert.Equal(2026, currentYearBalance.Year);
             Assert.Equal(20, currentYearBalance.EntitledDays);
@@ -445,7 +453,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-12-30",
                 "2027-01-02",
                 "Cross-year leave request.");
@@ -457,14 +465,14 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
                 testData.ManagerAccessToken,
                 "Approved cross-year leave.");
 
-            var balance2026 = await GetBalanceAsync(testData.EmployeeId, 2026);
+            var balance2026 = await GetBalanceAsync(testData, 2026);
 
             Assert.Equal(2026, balance2026.Year);
             Assert.Equal(20, balance2026.EntitledDays);
             Assert.Equal(2, balance2026.UsedDays);
             Assert.Equal(18, balance2026.RemainingDays);
 
-            var balance2027 = await GetBalanceAsync(testData.EmployeeId, 2027);
+            var balance2027 = await GetBalanceAsync(testData, 2027);
 
             Assert.Equal(2027, balance2027.Year);
             Assert.Equal(20, balance2027.EntitledDays);
@@ -487,7 +495,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var existingLeaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-01-01",
                 "2026-01-19",
                 "Existing approved leave request.");
@@ -499,14 +507,18 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
 
             var crossYearRequest = new
             {
-                employeeId = testData.EmployeeId,
                 leaveTypeId = AnnualLeaveTypeId,
                 startDate = "2026-12-30",
                 endDate = "2027-01-02",
                 reason = "Cross-year leave exceeding one year balance."
             };
 
-            var response = await _client.PostAsJsonAsync("/api/leave-requests", crossYearRequest);
+            using var response =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Post,
+                    "/api/leave-requests",
+                    testData.EmployeeAccessToken,
+                    crossYearRequest);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -534,7 +546,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-01-01",
                 "2026-03-31",
                 "Zero allowance leave type should skip balance check.",
@@ -570,7 +582,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-10-01",
                 "2026-10-03",
                 "Approved leave request should not be reviewed again.");
@@ -628,7 +640,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-10-01",
                 "2026-10-03",
                 "Approved leave request should not be updated.");
@@ -646,9 +658,12 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
                 reason = "Trying to update an approved leave request."
             };
 
-            var response = await _client.PutAsJsonAsync(
-                $"/api/leave-requests/{leaveRequest.Id}",
-                updateRequest);
+            using var response =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Put,
+                    $"/api/leave-requests/{leaveRequest.Id}",
+                    testData.EmployeeAccessToken,
+                    updateRequest);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -675,7 +690,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-10-01",
                 "2026-10-03",
                 "Approved leave request should not be deleted.");
@@ -685,7 +700,11 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
                 testData.ManagerAccessToken,
                 "Approved by direct manager.");
 
-            var response = await _client.DeleteAsync($"/api/leave-requests/{leaveRequest.Id}");
+            using var response =
+                await SendAuthorizedJsonRequestAsync(
+                    HttpMethod.Delete,
+                    $"/api/leave-requests/{leaveRequest.Id}",
+                    testData.EmployeeAccessToken);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -712,7 +731,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var rejectedLeaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-10-01",
                 "2026-10-03",
                 "Rejected leave request should not block same dates.");
@@ -723,7 +742,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
                 "Rejected by direct manager.");
 
             var newLeaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-10-01",
                 "2026-10-03",
                 "New request for same dates after rejection.");
@@ -774,7 +793,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-10-10",
                 "2026-10-12",
                 "Former direct manager rejection test.");
@@ -838,7 +857,7 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         try
         {
             var leaveRequest = await CreateLeaveRequestAsync(
-                testData.EmployeeId,
+                testData,
                 "2026-10-01",
                 "2026-10-03",
                 "Reject flow test leave request.");
@@ -1174,31 +1193,74 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
         return leaveTypeId;
     }
 
+    private async Task<HttpResponseMessage> SendAuthorizedJsonRequestAsync(
+        HttpMethod method,
+        string requestUri,
+        string accessToken,
+        object? content = null)
+    {
+        using var request =
+            new HttpRequestMessage(
+                method,
+                requestUri);
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                accessToken);
+
+        if (content is not null)
+        {
+            request.Content =
+                JsonContent.Create(
+                    content);
+        }
+
+        return await _client.SendAsync(
+            request);
+    }
+
     private async Task<LeaveRequestResponse> CreateLeaveRequestAsync(
-        Guid employeeId,
-        string startDate,
-        string endDate,
-        string reason,
-        Guid? leaveTypeId = null)
+       TestData testData,
+       string startDate,
+       string endDate,
+       string reason,
+       Guid? leaveTypeId = null)
     {
         var request = new
         {
-            employeeId,
-            leaveTypeId = leaveTypeId ?? AnnualLeaveTypeId,
+            leaveTypeId =
+                leaveTypeId
+                ?? AnnualLeaveTypeId,
             startDate,
             endDate,
             reason
         };
 
-        var response = await _client.PostAsJsonAsync("/api/leave-requests", request);
+        using var response =
+            await SendAuthorizedJsonRequestAsync(
+                HttpMethod.Post,
+                "/api/leave-requests",
+                testData.EmployeeAccessToken,
+                request);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Created,
+            response.StatusCode);
 
-        var leaveRequest = await response.Content.ReadFromJsonAsync<LeaveRequestResponse>(JsonOptions);
+        var leaveRequest =
+            await response.Content
+                .ReadFromJsonAsync<LeaveRequestResponse>(
+                    JsonOptions);
 
-        Assert.NotNull(leaveRequest);
+        Assert.NotNull(
+            leaveRequest);
 
-        return leaveRequest!;
+        Assert.Equal(
+            testData.EmployeeId,
+            leaveRequest!.EmployeeId);
+
+        return leaveRequest;
     }
 
     private async Task<LeaveRequestResponse> ApproveLeaveRequestAsync(
@@ -1417,18 +1479,35 @@ public sealed class Phase2BusinessRuleTests : IClassFixture<TestWebApplicationFa
                 problem.TraceId));
     }
 
-    private async Task<LeaveBalanceResponse> GetBalanceAsync(Guid employeeId, int year)
+    private async Task<LeaveBalanceResponse> GetBalanceAsync(
+        TestData testData,
+        int year)
     {
-        var response = await _client.GetAsync(
-            $"/api/leave-requests/balance?employeeId={employeeId}&leaveTypeId={AnnualLeaveTypeId}&year={year}");
+        using var response =
+            await SendAuthorizedJsonRequestAsync(
+                HttpMethod.Get,
+                "/api/leave-requests/balance" +
+                $"?leaveTypeId={AnnualLeaveTypeId}" +
+                $"&year={year}",
+                testData.EmployeeAccessToken);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
 
-        var balance = await response.Content.ReadFromJsonAsync<LeaveBalanceResponse>(JsonOptions);
+        var balance =
+            await response.Content
+                .ReadFromJsonAsync<LeaveBalanceResponse>(
+                    JsonOptions);
 
-        Assert.NotNull(balance);
+        Assert.NotNull(
+            balance);
 
-        return balance!;
+        Assert.Equal(
+            testData.EmployeeId,
+            balance!.EmployeeId);
+
+        return balance;
     }
 
     private async Task CleanupAsync(
