@@ -34,9 +34,7 @@ public sealed class TestAuthenticationController
                 User.Identity?.IsAuthenticated ?? false));
     }
 
-    [Authorize(
-        Policy =
-            AuthorizationPolicyNames.AuthenticatedEmployee)]
+    [Authorize]
     [HttpGet("authenticated-employee")]
     [ProducesResponseType(
         StatusCodes.Status204NoContent)]
@@ -78,6 +76,16 @@ public sealed class TestAuthenticationController
         typeof(ProblemDetails),
         StatusCodes.Status403Forbidden)]
     public IActionResult GetManagerOnly()
+    {
+        return NoContent();
+    }
+
+    [HttpGet("fallback-protected")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent)]
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized)]
+    public IActionResult GetFallbackProtected()
     {
         return NoContent();
     }

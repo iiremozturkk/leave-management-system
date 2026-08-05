@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace LeaveManagementSystem.IntegrationTests.TestSupport;
 
@@ -42,6 +43,7 @@ public sealed class TestValidationController : ControllerBase
         _sender = sender;
     }
 
+    [AllowAnonymous]
     [HttpPost]
     public async Task<ActionResult<string>> Validate(
         TestValidationRequest request,

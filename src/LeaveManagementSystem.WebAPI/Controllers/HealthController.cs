@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace LeaveManagementSystem.WebAPI.Controllers;
 
@@ -6,6 +7,7 @@ namespace LeaveManagementSystem.WebAPI.Controllers;
 [Route("api/[controller]")]
 public sealed class HealthController : ControllerBase
 {
+    [AllowAnonymous]
     [HttpGet]
     public IActionResult Get()
     {

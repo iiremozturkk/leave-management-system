@@ -4,6 +4,9 @@ using LeaveManagementSystem.Domain.Enums;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using LeaveManagementSystem.IntegrationTests.Contracts;
 using LeaveManagementSystem.IntegrationTests.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +35,71 @@ public sealed class AuthorizationPolicyEndpointTests(
 
     private const string EmployeeCollectionPath =
         "/api/employees";
+
+    private const string FallbackProtectedPath =
+        "/api/test-authentication/fallback-protected";
+
+    [Fact]
+    public async Task GetFallbackProtected_WithoutToken_ReturnsUnauthorized()
+    {
+        using var response =
+            await _client.GetAsync(
+                FallbackProtectedPath);
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode);
+
+        Assert.Contains(
+            response.Headers.WwwAuthenticate,
+            header =>
+                string.Equals(
+                    header.Scheme,
+                    "Bearer",
+                    StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ProductionControllerActions_DeclareAuthorizationIntent()
+    {
+        using var scope =
+            _factory.Services.CreateScope();
+
+        var actionDescriptorProvider =
+            scope.ServiceProvider
+                .GetRequiredService<
+                    IActionDescriptorCollectionProvider>();
+
+        var actionsWithoutAuthorizationIntent =
+            actionDescriptorProvider
+                .ActionDescriptors
+                .Items
+                .OfType<ControllerActionDescriptor>()
+                .Where(action =>
+                    action.ControllerTypeInfo.Assembly ==
+                    typeof(global::Program).Assembly)
+                .Where(action =>
+                    !action.EndpointMetadata
+                        .OfType<IAuthorizeData>()
+                        .Any()
+                    &&
+                    !action.EndpointMetadata
+                        .OfType<IAllowAnonymous>()
+                        .Any())
+                .Select(action =>
+                    $"{action.ControllerName}.{action.ActionName}")
+                .OrderBy(actionName =>
+                    actionName)
+                .ToArray();
+
+        Assert.True(
+            actionsWithoutAuthorizationIntent.Length == 0,
+            "Every production controller action must explicitly declare " +
+            "[Authorize] or [AllowAnonymous]. Missing actions: " +
+            string.Join(
+                ", ",
+                actionsWithoutAuthorizationIntent));
+    }
 
     [Fact]
     public async Task GetAuthenticatedEmployee_WithoutToken_ReturnsUnauthorized()

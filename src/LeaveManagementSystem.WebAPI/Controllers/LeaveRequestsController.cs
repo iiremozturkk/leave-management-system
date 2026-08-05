@@ -22,8 +22,7 @@ public sealed class LeaveRequestsController(
     : ControllerBase
 {
     [HttpGet]
-    [Authorize(
-        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
+    [Authorize]
     [ProducesResponseType(
         typeof(IReadOnlyList<LeaveRequestDto>),
         StatusCodes.Status200OK)]
@@ -38,8 +37,7 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(
-        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
+    [Authorize]
     [ProducesResponseType(
         typeof(LeaveRequestDto),
         StatusCodes.Status200OK)]
@@ -61,8 +59,7 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpGet("balance")]
-    [Authorize(
-        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
+    [Authorize]
     [ProducesResponseType(
         typeof(LeaveBalanceDto),
         StatusCodes.Status200OK)]
@@ -99,8 +96,7 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpPost]
-    [Authorize(
-        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
+    [Authorize]
     [ProducesResponseType(
         typeof(LeaveRequestDto),
         StatusCodes.Status201Created)]
@@ -135,8 +131,7 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(
-        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
+    [Authorize]
     [ProducesResponseType(
         typeof(LeaveRequestDto),
         StatusCodes.Status200OK)]
@@ -260,8 +255,7 @@ public sealed class LeaveRequestsController(
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(
-        Policy = AuthorizationPolicyNames.AuthenticatedEmployee)]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(
         typeof(ProblemDetails),

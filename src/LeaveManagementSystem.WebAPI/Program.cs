@@ -121,15 +121,22 @@ builder.Services
 
 builder.Services.AddAuthorization(options =>
 {
+    var authenticatedEmployeePolicy =
+        new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .AddRequirements(
+                new CurrentUserAccessRequirement())
+            .Build();
+
+    options.DefaultPolicy =
+        authenticatedEmployeePolicy;
+
+    options.FallbackPolicy =
+        authenticatedEmployeePolicy;
+
     options.AddPolicy(
         AuthorizationPolicyNames.AuthenticatedEmployee,
-        policy =>
-        {
-            policy.RequireAuthenticatedUser();
-
-            policy.AddRequirements(
-                new CurrentUserAccessRequirement());
-        });
+        authenticatedEmployeePolicy);
 
     options.AddPolicy(
         AuthorizationPolicyNames.HrOnly,
