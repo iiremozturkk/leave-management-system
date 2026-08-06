@@ -322,6 +322,9 @@ public sealed class SwaggerAuthorizationDocumentationTests(
     [InlineData("/api/employees/{id}", "get")]
     [InlineData("/api/employees/{id}", "put")]
     [InlineData("/api/employees/{id}", "delete")]
+    [InlineData(
+        "/api/reports/department-leave-statistics",
+        "get")]
     public async Task SwaggerDocument_EmployeeAdministrationEndpoint_RequiresBearerSecurity(
     string expectedPath,
     string httpMethod)

@@ -13,41 +13,62 @@ public sealed class DepartmentLeaveStatisticsReadRepository(
     public async Task<IReadOnlyList<DepartmentLeaveStatisticsDto>> GetAsync(
         CancellationToken cancellationToken = default)
     {
-        return await dbContext.LeaveRequests
-            .AsNoTracking()
-            .Where(
-                leaveRequest =>
-                    leaveRequest.Status ==
-                    LeaveRequestStatus.Approved)
-            .GroupBy(
-                leaveRequest =>
-                    new
-                    {
-                        DepartmentId =
-                            leaveRequest.Employee.DepartmentId,
+        var statistics =
+            await dbContext.LeaveRequests
+                .AsNoTracking()
+                .Where(
+                    leaveRequest =>
+                        leaveRequest.Status ==
+                        LeaveRequestStatus.Approved)
+                .GroupBy(
+                    leaveRequest =>
+                        new
+                        {
+                            DepartmentId =
+                                leaveRequest.Employee.DepartmentId,
 
-                        DepartmentName =
-                            leaveRequest.Employee.Department.Name
-                    })
+                            DepartmentName =
+                                leaveRequest.Employee.Department.Name
+                        })
+                .Select(
+                    group =>
+                        new
+                        {
+                            group.Key.DepartmentId,
+                            group.Key.DepartmentName,
+
+                            ApprovedRequestCount =
+                                group.Count(),
+
+                            TotalApprovedLeaveDays =
+                                group.Sum(
+                                    leaveRequest =>
+                                        leaveRequest.RequestedDays),
+
+                            AverageApprovedLeaveDaysPerRequest =
+                                group.Average(
+                                    leaveRequest =>
+                                        leaveRequest.RequestedDays)
+                        })
+                .OrderBy(
+                    item =>
+                        item.DepartmentName)
+                .ThenBy(
+                    item =>
+                        item.DepartmentId)
+                .ToListAsync(
+                    cancellationToken);
+
+        return statistics
             .Select(
-                group =>
+                item =>
                     new DepartmentLeaveStatisticsDto(
-                        group.Key.DepartmentId,
-                        group.Key.DepartmentName,
-                        group.Count(),
-                        group.Sum(
-                            leaveRequest =>
-                                leaveRequest.RequestedDays),
-                        group.Average(
-                            leaveRequest =>
-                                (decimal)leaveRequest.RequestedDays)))
-            .OrderBy(
-                statistics =>
-                    statistics.DepartmentName)
-            .ThenBy(
-                statistics =>
-                    statistics.DepartmentId)
-            .ToListAsync(
-                cancellationToken);
+                        item.DepartmentId,
+                        item.DepartmentName,
+                        item.ApprovedRequestCount,
+                        item.TotalApprovedLeaveDays,
+                        (decimal)item
+                            .AverageApprovedLeaveDaysPerRequest))
+            .ToList();
     }
 }

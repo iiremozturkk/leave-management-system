@@ -36,6 +36,9 @@ public sealed class AuthorizationPolicyEndpointTests(
     private const string EmployeeCollectionPath =
         "/api/employees";
 
+    private const string DepartmentLeaveStatisticsPath =
+        "/api/reports/department-leave-statistics";
+
     private const string FallbackProtectedPath =
         "/api/test-authentication/fallback-protected";
 
@@ -343,6 +346,69 @@ public sealed class AuthorizationPolicyEndpointTests(
 
             Assert.Equal(
                 HttpStatusCode.OK,
+                response.StatusCode);
+        }
+        finally
+        {
+            await CleanupAsync(
+                leaveRequestId: null,
+                employeeId,
+                departmentId);
+        }
+    }
+
+    [Theory]
+    [InlineData(
+    EmployeeRole.Employee,
+    HttpStatusCode.Forbidden)]
+    [InlineData(
+    EmployeeRole.Manager,
+    HttpStatusCode.Forbidden)]
+    [InlineData(
+    EmployeeRole.HR,
+    HttpStatusCode.OK)]
+    public async Task GetDepartmentLeaveStatistics_WithRole_ReturnsExpectedStatus(
+    EmployeeRole role,
+    HttpStatusCode expectedStatus)
+    {
+        await EnsureDatabaseReadyAsync();
+
+        var departmentId =
+            await CreateDepartmentAsync();
+
+        Guid? employeeId =
+            null;
+
+        try
+        {
+            var testUser =
+                await CreateUserAccountAsync(
+                    departmentId,
+                    role);
+
+            employeeId =
+                testUser.EmployeeId;
+
+            var accessToken =
+                await LoginAsync(
+                    testUser);
+
+            using var response =
+                await SendAuthorizedGetAsync(
+                    DepartmentLeaveStatisticsPath,
+                    accessToken);
+
+            if (expectedStatus == HttpStatusCode.Forbidden)
+            {
+                await AssertForbiddenProblemDetailsAsync(
+                    response,
+                    DepartmentLeaveStatisticsPath);
+
+                return;
+            }
+
+            Assert.Equal(
+                expectedStatus,
                 response.StatusCode);
         }
         finally
