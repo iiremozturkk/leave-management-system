@@ -1,12 +1,14 @@
 ﻿using LeaveManagementSystem.Application.Authentication.Abstractions;
 using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
+using LeaveManagementSystem.Application.Reports.Abstractions;
 using LeaveManagementSystem.Infrastructure.Authentication.Jwt;
 using LeaveManagementSystem.Infrastructure.Authentication.Persistence;
 using LeaveManagementSystem.Infrastructure.Authentication.Security;
 using LeaveManagementSystem.Infrastructure.Employees.Persistence;
 using LeaveManagementSystem.Infrastructure.LeaveRequests.Persistence;
 using LeaveManagementSystem.Infrastructure.Persistence;
+using LeaveManagementSystem.Infrastructure.Reports.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -96,6 +98,10 @@ public static class DependencyInjection
         services.AddScoped<
             ILeaveRequestWriteRepository,
             LeaveRequestWriteRepository>();
+
+        services.AddScoped<
+            IDepartmentLeaveStatisticsReadRepository,
+            DepartmentLeaveStatisticsReadRepository>();
 
         return services;
     }
