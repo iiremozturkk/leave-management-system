@@ -1,20 +1,36 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace LeaveManagementSystem.WebAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class HealthController : ControllerBase
+public sealed class HealthController(
+    HealthCheckService healthCheckService)
+    : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet]
-    public IActionResult Get()
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Get(
+        CancellationToken cancellationToken)
     {
-        return Ok(new
+        var report =
+            await healthCheckService.CheckHealthAsync(
+                cancellationToken);
+
+        var response = new
         {
-            status = "Healthy",
+            status = report.Status.ToString(),
             service = "LeaveManagementSystem.WebAPI"
-        });
+        };
+
+        return report.Status == HealthStatus.Healthy
+            ? Ok(response)
+            : StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                response);
     }
 }
