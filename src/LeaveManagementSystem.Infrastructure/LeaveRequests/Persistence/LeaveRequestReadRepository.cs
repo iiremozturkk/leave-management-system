@@ -8,7 +8,8 @@ namespace LeaveManagementSystem.Infrastructure.LeaveRequests.Persistence;
 public sealed class LeaveRequestReadRepository(
     AppDbContext dbContext)
     : ILeaveRequestReadRepository,
-      ILeaveRequestScopedReadRepository
+      ILeaveRequestScopedReadRepository,
+      ILeaveCalendarReadRepository
 {
     public async Task<IReadOnlyList<LeaveRequestDto>> GetAllAsync(
         CancellationToken cancellationToken = default)
@@ -50,6 +51,95 @@ public sealed class LeaveRequestReadRepository(
                     leaveRequest.CreatedAtUtc)
             .Select(LeaveRequestProjections.ToDto)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LeaveCalendarItemDto>>
+    GetCalendarAsync(
+        DateOnly startDate,
+        DateOnly endDate,
+        CancellationToken cancellationToken = default)
+    {
+        return await dbContext.LeaveRequests
+            .AsNoTracking()
+            .Where(
+                leaveRequest =>
+                    leaveRequest.StartDate <= endDate
+                    && leaveRequest.EndDate >= startDate)
+            .OrderBy(
+                leaveRequest =>
+                    leaveRequest.StartDate)
+            .ThenBy(
+                leaveRequest =>
+                    leaveRequest.EndDate)
+            .ThenBy(
+                leaveRequest =>
+                    leaveRequest.Employee.LastName)
+            .ThenBy(
+                leaveRequest =>
+                    leaveRequest.Employee.FirstName)
+            .Select(
+                LeaveRequestProjections.ToCalendarItem)
+            .ToListAsync(
+                cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LeaveCalendarItemDto>>
+        GetCalendarForEmployeeAsync(
+            Guid employeeId,
+            DateOnly startDate,
+            DateOnly endDate,
+            CancellationToken cancellationToken = default)
+    {
+        return await dbContext.LeaveRequests
+            .AsNoTracking()
+            .Where(
+                leaveRequest =>
+                    leaveRequest.EmployeeId == employeeId
+                    && leaveRequest.StartDate <= endDate
+                    && leaveRequest.EndDate >= startDate)
+            .OrderBy(
+                leaveRequest =>
+                    leaveRequest.StartDate)
+            .ThenBy(
+                leaveRequest =>
+                    leaveRequest.EndDate)
+            .Select(
+                LeaveRequestProjections.ToCalendarItem)
+            .ToListAsync(
+                cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LeaveCalendarItemDto>>
+        GetCalendarForManagerAsync(
+            Guid managerId,
+            DateOnly startDate,
+            DateOnly endDate,
+            CancellationToken cancellationToken = default)
+    {
+        return await dbContext.LeaveRequests
+            .AsNoTracking()
+            .Where(
+                leaveRequest =>
+                    leaveRequest.Employee.ManagerId == managerId
+                    && leaveRequest.Employee.IsActive
+                    && leaveRequest.StartDate <= endDate
+                    && leaveRequest.EndDate >= startDate)
+            .OrderBy(
+                leaveRequest =>
+                    leaveRequest.StartDate)
+            .ThenBy(
+                leaveRequest =>
+                    leaveRequest.EndDate)
+            .ThenBy(
+                leaveRequest =>
+                    leaveRequest.Employee.LastName)
+            .ThenBy(
+                leaveRequest =>
+                    leaveRequest.Employee.FirstName)
+            .Select(
+                LeaveRequestProjections.ToCalendarItem)
+            .ToListAsync(
+                cancellationToken);
     }
 
     public async Task<LeaveRequestDto?> GetByIdForEmployeeAsync(

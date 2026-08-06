@@ -31,4 +31,23 @@ internal static class LeaveRequestProjections
                     + leaveRequest.ReviewedByEmployee.LastName,
             leaveRequest.CreatedAtUtc,
             leaveRequest.UpdatedAtUtc);
+
+    internal static Expression<Func<LeaveRequest, LeaveCalendarItemDto>>
+    ToCalendarItem
+    {
+        get;
+    } =
+    leaveRequest =>
+        new LeaveCalendarItemDto(
+            leaveRequest.Id,
+            leaveRequest.EmployeeId,
+            leaveRequest.Employee.FirstName
+                + " "
+                + leaveRequest.Employee.LastName,
+            leaveRequest.LeaveTypeId,
+            leaveRequest.LeaveType.Name,
+            leaveRequest.StartDate,
+            leaveRequest.EndDate,
+            leaveRequest.RequestedDays,
+            leaveRequest.Status);
 }

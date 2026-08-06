@@ -9,6 +9,7 @@ using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveBalance;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequestById;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveRequests;
 using LeaveManagementSystem.Application.LeaveRequests.Queries.GetMyLeaveRequests;
+using LeaveManagementSystem.Application.LeaveRequests.Queries.GetLeaveCalendar;
 using LeaveManagementSystem.WebAPI.Authorization.Policies;
 using Microsoft.AspNetCore.Authorization;
 using MediatR;
@@ -50,6 +51,29 @@ public sealed class LeaveRequestsController(
             cancellationToken);
 
         return Ok(leaveRequests);
+    }
+
+    [HttpGet("calendar")]
+    [Authorize]
+    [ProducesResponseType(
+        typeof(IReadOnlyList<LeaveCalendarItemDto>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<LeaveCalendarItemDto>>> GetCalendar(
+        [FromQuery] DateOnly startDate,
+        [FromQuery] DateOnly endDate,
+    CancellationToken cancellationToken)
+    {
+        var calendarItems =
+            await sender.Send(
+                new GetLeaveCalendarQuery(
+                    startDate,
+                    endDate),
+                cancellationToken);
+
+        return Ok(calendarItems);
     }
 
     [HttpGet("{id:guid}")]

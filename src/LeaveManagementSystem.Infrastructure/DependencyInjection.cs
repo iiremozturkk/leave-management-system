@@ -82,6 +82,10 @@ public static class DependencyInjection
             LeaveRequestReadRepository>();
 
         services.AddScoped<
+            ILeaveCalendarReadRepository,
+            LeaveRequestReadRepository>();
+
+        services.AddScoped<
             ILeaveRequestScopedReadRepository,
             LeaveRequestReadRepository>();
 
