@@ -117,6 +117,7 @@ public sealed class SwaggerAuthorizationDocumentationTests(
     [Theory]
     [InlineData("/api/leave-requests", "get")]
     [InlineData("/api/leave-requests/mine", "get")]
+    [InlineData("/api/leave-requests/calendar", "get")]
     [InlineData("/api/leave-requests/{id}", "get")]
     [InlineData("/api/leave-requests/balance", "get")]
     [InlineData("/api/leave-requests", "post")]
