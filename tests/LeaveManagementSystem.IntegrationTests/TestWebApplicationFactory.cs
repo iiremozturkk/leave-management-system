@@ -1,13 +1,15 @@
 ﻿using FluentValidation;
 using LeaveManagementSystem.Infrastructure.Persistence;
+using LeaveManagementSystem.Infrastructure.Persistence.Auditing;
 using LeaveManagementSystem.IntegrationTests.TestSupport;
 using MediatR;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Configuration;
 
 namespace LeaveManagementSystem.IntegrationTests;
 
@@ -48,10 +50,23 @@ public sealed class TestWebApplicationFactory
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<AppDbContext>();
-            services.RemoveAll<DbContextOptions<AppDbContext>>();
 
-            services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(TestConnectionString));
+            services.RemoveAll<
+                DbContextOptions<AppDbContext>>();
+
+            services.RemoveAll<
+                IDbContextOptionsConfiguration<AppDbContext>>();
+
+            services.AddDbContext<AppDbContext>(
+                (serviceProvider, options) =>
+                {
+                    options.UseNpgsql(
+                        TestConnectionString);
+
+                    options.AddInterceptors(
+                        serviceProvider.GetRequiredService<
+                            AuditSaveChangesInterceptor>());
+                });
 
             services
                 .AddControllers()
