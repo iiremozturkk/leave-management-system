@@ -39,6 +39,8 @@ services:
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
       Jwt__AccessTokenExpirationMinutes: 60
       DatabaseInitialization__ApplyMigrationsOnStartup: "true"
+      DemoData__SeedOnStartup: "${DEMO_DATA_SEED_ON_STARTUP:-false}"
+      DemoData__Password: "${DEMO_DATA_PASSWORD:-}"
     ports:
       - "5252:8080"
     healthcheck:

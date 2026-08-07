@@ -2,6 +2,7 @@
 using LeaveManagementSystem.Application.Employees.Abstractions;
 using LeaveManagementSystem.Application.LeaveRequests.Abstractions;
 using LeaveManagementSystem.Application.Reports.Abstractions;
+using LeaveManagementSystem.Infrastructure.DemoData;
 using LeaveManagementSystem.Infrastructure.Authentication.Jwt;
 using LeaveManagementSystem.Infrastructure.Authentication.Persistence;
 using LeaveManagementSystem.Infrastructure.Authentication.Security;
@@ -33,6 +34,18 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString));
+
+        services.AddOptions<DemoDataOptions>()
+            .Bind(
+                configuration.GetSection(
+                    DemoDataOptions.SectionName))
+            .ValidateOnStart();
+
+        services.AddSingleton<
+            IValidateOptions<DemoDataOptions>,
+            DemoDataOptionsValidator>();
+
+        services.AddScoped<DemoDataSeeder>();
 
         services.AddOptions<JwtOptions>()
             .Bind(

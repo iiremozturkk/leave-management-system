@@ -3,6 +3,7 @@ using LeaveManagementSystem.Application.Authentication.Abstractions;
 using LeaveManagementSystem.Application.Authentication.Constants;
 using LeaveManagementSystem.Domain.Enums;
 using LeaveManagementSystem.Infrastructure;
+using LeaveManagementSystem.Infrastructure.DemoData;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using LeaveManagementSystem.Infrastructure.Authentication.Jwt;
 using LeaveManagementSystem.WebAPI.Authentication.CurrentUser;
@@ -174,6 +175,18 @@ if (app.Configuration.GetValue<bool>(
         "DatabaseInitialization:ApplyMigrationsOnStartup"))
 {
     await ApplyMigrationsWithRetryAsync(app);
+}
+
+if (app.Environment.IsDevelopment())
+{
+    using var scope =
+        app.Services.CreateScope();
+
+    var demoDataSeeder =
+        scope.ServiceProvider
+            .GetRequiredService<DemoDataSeeder>();
+
+    await demoDataSeeder.SeedAsync();
 }
 
 app.UseExceptionHandler();
