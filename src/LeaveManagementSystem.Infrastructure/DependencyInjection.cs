@@ -10,6 +10,7 @@ using LeaveManagementSystem.Infrastructure.Employees.Persistence;
 using LeaveManagementSystem.Infrastructure.LeaveRequests.Persistence;
 using LeaveManagementSystem.Infrastructure.Persistence;
 using LeaveManagementSystem.Infrastructure.Reports.Persistence;
+using LeaveManagementSystem.Infrastructure.LeaveRequests.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -111,6 +112,10 @@ public static class DependencyInjection
         services.AddScoped<
             ILeaveRequestWriteRepository,
             LeaveRequestWriteRepository>();
+
+        services.AddScoped<
+            ILeaveRequestNotificationService,
+            LeaveRequestNotificationService>();
 
         services.AddScoped<
             IDepartmentLeaveStatisticsReadRepository,

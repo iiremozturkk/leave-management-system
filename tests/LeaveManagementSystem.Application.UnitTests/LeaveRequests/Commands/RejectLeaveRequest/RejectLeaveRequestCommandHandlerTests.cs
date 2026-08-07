@@ -27,7 +27,7 @@ public sealed class RejectLeaveRequestCommandHandlerTests
         var currentUserAccessService =
             new FakeCurrentUserAccessService(callSequence);
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -69,7 +69,7 @@ public sealed class RejectLeaveRequestCommandHandlerTests
                 Result = null
             };
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -121,7 +121,7 @@ public sealed class RejectLeaveRequestCommandHandlerTests
                 Guid.NewGuid(),
                 role);
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -176,7 +176,7 @@ public sealed class RejectLeaveRequestCommandHandlerTests
                 callSequence,
                 reviewerId);
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -255,7 +255,7 @@ public sealed class RejectLeaveRequestCommandHandlerTests
                 callSequence,
                 reviewerId);
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -319,11 +319,15 @@ public sealed class RejectLeaveRequestCommandHandlerTests
                 callSequence,
                 reviewerId);
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var notificationService =
+            new FakeLeaveRequestNotificationService();
+
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
-            currentUserAccessService);
+            currentUserAccessService,
+            notificationService);
 
         var result = await handler.Handle(
             new RejectLeaveRequestCommand(
@@ -341,6 +345,9 @@ public sealed class RejectLeaveRequestCommandHandlerTests
         Assert.Equal(
             0,
             leaveRequestReadRepository.GetByIdCallCount);
+        Assert.Equal(
+            0,
+            notificationService.CallCount);
         Assert.Equal(
             new[]
             {
@@ -388,7 +395,7 @@ public sealed class RejectLeaveRequestCommandHandlerTests
                 Result = expectedDto
             };
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -464,7 +471,7 @@ public sealed class RejectLeaveRequestCommandHandlerTests
         var leaveRequestReadRepository =
             new FakeLeaveRequestReadRepository(callSequence);
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -547,11 +554,16 @@ public sealed class RejectLeaveRequestCommandHandlerTests
                 callSequence,
                 reviewerId);
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var notificationService =
+            new FakeLeaveRequestNotificationService(
+                callSequence);
+
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
-            currentUserAccessService);
+            currentUserAccessService,
+            notificationService);
 
         using var cancellationTokenSource =
             new CancellationTokenSource();
@@ -625,6 +637,34 @@ public sealed class RejectLeaveRequestCommandHandlerTests
             },
             employeeReadRepository.RequestedIds);
 
+        Assert.Equal(
+            1,
+            notificationService.CallCount);
+
+        Assert.Equal(
+            leaveRequest.Id,
+            notificationService.LeaveRequestId);
+
+        Assert.Equal(
+            leaveRequest.EmployeeId,
+            notificationService.EmployeeId);
+
+        Assert.Equal(
+            reviewerId,
+            notificationService.ReviewerEmployeeId);
+
+        Assert.Equal(
+            LeaveRequestStatus.Rejected,
+            notificationService.Status);
+
+        Assert.Equal(
+            leaveRequest.ReviewedAtUtc!.Value,
+            notificationService.ReviewedAtUtc);
+
+        Assert.Equal(
+            cancellationToken,
+            notificationService.CancellationToken);
+
         Assert.All(
             writeRepository.GetForModificationTokens,
             receivedToken =>
@@ -661,11 +701,89 @@ public sealed class RejectLeaveRequestCommandHandlerTests
         Assert.Equal(
             new[]
             {
-            "GetCurrentUserAccess",
-            "GetForModification",
-            $"GetEmployeeById:{leaveRequest.EmployeeId}",
-            "SaveChanges",
-            "ReloadLeaveRequest"
+                "GetCurrentUserAccess",
+                "GetForModification",
+                $"GetEmployeeById:{leaveRequest.EmployeeId}",
+                "SaveChanges",
+                "NotifyReviewCompleted",
+                "ReloadLeaveRequest"
+            },
+            callSequence);
+    }
+
+    [Fact]
+    public async Task Handle_SaveChangesFails_DoesNotNotify()
+    {
+        var reviewerId = Guid.NewGuid();
+        var leaveRequest = CreateLeaveRequest();
+        var callSequence = new List<string>();
+
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository(
+                callSequence)
+            {
+                LeaveRequestResult = leaveRequest,
+                AllowSaveChanges = true,
+                SaveChangesException =
+                    new InvalidOperationException(
+                        "Simulated save failure.")
+            };
+
+        var employeeReadRepository =
+            CreateValidEmployeeReadRepository(
+                callSequence,
+                leaveRequest.EmployeeId,
+                reviewerId);
+
+        var leaveRequestReadRepository =
+            new FakeLeaveRequestReadRepository(
+                callSequence);
+
+        var notificationService =
+            new FakeLeaveRequestNotificationService(
+                callSequence);
+
+        var handler =
+            CreateHandler(
+                writeRepository,
+                leaveRequestReadRepository,
+                employeeReadRepository,
+                CreateManagerCurrentUserAccessService(
+                    callSequence,
+                    reviewerId),
+                notificationService);
+
+        var exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => handler.Handle(
+                    new RejectLeaveRequestCommand(
+                        leaveRequest.Id,
+                        null),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "Simulated save failure.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            notificationService.CallCount);
+
+        Assert.Equal(
+            0,
+            leaveRequestReadRepository.GetByIdCallCount);
+
+        Assert.Equal(
+            new[]
+            {
+                "GetCurrentUserAccess",
+                "GetForModification",
+                $"GetEmployeeById:{leaveRequest.EmployeeId}",
+                "SaveChanges"
             },
             callSequence);
     }
@@ -694,7 +812,7 @@ public sealed class RejectLeaveRequestCommandHandlerTests
             Result = null
         };
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -750,7 +868,7 @@ public sealed class RejectLeaveRequestCommandHandlerTests
 
         var leaveRequestReadRepository = new FakeLeaveRequestReadRepository(callSequence);
 
-        var handler = new RejectLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -988,6 +1106,63 @@ public sealed class RejectLeaveRequestCommandHandlerTests
         Guid? ReviewedByEmployeeId,
         DateTime? UpdatedAtUtc);
 
+    private static RejectLeaveRequestCommandHandler CreateHandler(
+        ILeaveRequestWriteRepository writeRepository,
+        ILeaveRequestReadRepository leaveRequestReadRepository,
+        IEmployeeReadRepository employeeReadRepository,
+        ICurrentUserAccessService currentUserAccessService,
+        FakeLeaveRequestNotificationService? notificationService = null)
+    {
+        return new RejectLeaveRequestCommandHandler(
+            writeRepository,
+            leaveRequestReadRepository,
+            employeeReadRepository,
+            currentUserAccessService,
+            notificationService
+                ?? new FakeLeaveRequestNotificationService());
+    }
+
+    private sealed class FakeLeaveRequestNotificationService(
+        List<string>? callSequence = null)
+        : ILeaveRequestNotificationService
+    {
+        public int CallCount { get; private set; }
+
+        public Guid LeaveRequestId { get; private set; }
+
+        public Guid EmployeeId { get; private set; }
+
+        public Guid ReviewerEmployeeId { get; private set; }
+
+        public LeaveRequestStatus Status { get; private set; }
+
+        public DateTime ReviewedAtUtc { get; private set; }
+
+        public CancellationToken CancellationToken { get; private set; }
+
+        public Task NotifyReviewCompletedAsync(
+            Guid leaveRequestId,
+            Guid employeeId,
+            Guid reviewerEmployeeId,
+            LeaveRequestStatus status,
+            DateTime reviewedAtUtc,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LeaveRequestId = leaveRequestId;
+            EmployeeId = employeeId;
+            ReviewerEmployeeId = reviewerEmployeeId;
+            Status = status;
+            ReviewedAtUtc = reviewedAtUtc;
+            CancellationToken = cancellationToken;
+
+            callSequence?.Add(
+                "NotifyReviewCompleted");
+
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class FakeCurrentUserAccessService(
         List<string> callSequence)
         : ICurrentUserAccessService
@@ -1029,6 +1204,8 @@ public sealed class RejectLeaveRequestCommandHandlerTests
         public LeaveRequest? LeaveRequestResult { get; init; }
 
         public bool AllowSaveChanges { get; init; }
+
+        public Exception? SaveChangesException { get; init; }
 
         public Guid RequestedLeaveRequestId { get; private set; }
 
@@ -1125,6 +1302,11 @@ public sealed class RejectLeaveRequestCommandHandlerTests
             SaveChangesCallCount++;
             SaveChangesTokens.Add(cancellationToken);
             callSequence.Add("SaveChanges");
+
+            if (SaveChangesException is not null)
+            {
+                throw SaveChangesException;
+            }
 
             return Task.CompletedTask;
         }

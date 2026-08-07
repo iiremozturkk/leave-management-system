@@ -13,7 +13,8 @@ public sealed class ApproveLeaveRequestCommandHandler(
     ILeaveRequestWriteRepository leaveRequestWriteRepository,
     ILeaveRequestReadRepository leaveRequestReadRepository,
     IEmployeeReadRepository employeeReadRepository,
-    ICurrentUserAccessService currentUserAccessService)
+    ICurrentUserAccessService currentUserAccessService,
+    ILeaveRequestNotificationService leaveRequestNotificationService)
     : IRequestHandler<
         ApproveLeaveRequestCommand,
         LeaveRequestDto?>
@@ -115,7 +116,20 @@ public sealed class ApproveLeaveRequestCommandHandler(
             reviewerEmployeeId,
             request.ManagerComment);
 
+        var reviewedAtUtc =
+            leaveRequest.ReviewedAtUtc
+            ?? throw new InvalidOperationException(
+                "Reviewed timestamp was not set.");
+
         await leaveRequestWriteRepository.SaveChangesAsync(
+            cancellationToken);
+
+        await leaveRequestNotificationService.NotifyReviewCompletedAsync(
+            leaveRequest.Id,
+            leaveRequest.EmployeeId,
+            reviewerEmployeeId,
+            LeaveRequestStatus.Approved,
+            reviewedAtUtc,
             cancellationToken);
 
         return await leaveRequestReadRepository.GetByIdAsync(

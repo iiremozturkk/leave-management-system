@@ -27,7 +27,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         var currentUserAccessService =
             new FakeCurrentUserAccessService(callSequence);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -69,7 +69,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
                 Result = null
             };
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -121,7 +121,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
                 Guid.NewGuid(),
                 role);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -176,7 +176,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
                 callSequence,
                 reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -255,7 +255,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
                 callSequence,
                 reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -324,11 +324,15 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
                 callSequence,
                 reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var notificationService =
+            new FakeLeaveRequestNotificationService();
+
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
-            currentUserAccessService);
+            currentUserAccessService,
+            notificationService);
 
         var result = await handler.Handle(
             new ApproveLeaveRequestCommand(
@@ -343,6 +347,9 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         Assert.Equal(
             originalUpdatedAtUtc,
             leaveRequest.UpdatedAtUtc);
+        Assert.Equal(
+            0,
+            notificationService.CallCount);
         Assert.Null(
             leaveRequest.ReviewedByEmployeeId);
         Assert.Equal(
@@ -382,7 +389,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             leaveRequest.EmployeeId,
             reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
             employeeReadRepository,
@@ -437,7 +444,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             leaveRequest.EmployeeId,
             reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
             employeeReadRepository,
@@ -489,7 +496,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             leaveRequest.EmployeeId,
             reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
             employeeReadRepository,
@@ -548,7 +555,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             leaveRequest.EmployeeId,
             reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
             employeeReadRepository,
@@ -606,7 +613,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             leaveRequest.EmployeeId,
             reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
             employeeReadRepository,
@@ -683,11 +690,17 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
                 callSequence,
                 reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var notificationService =
+            new FakeLeaveRequestNotificationService(
+                callSequence);
+
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
-            currentUserAccessService);
+            currentUserAccessService,
+            notificationService);
+
 
         using var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
@@ -783,7 +796,121 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
                 "GetLeaveType",
                 "GetApprovedUsedDaysForYear:2026",
                 "SaveChanges",
+                "NotifyReviewCompleted",
                 "ReloadLeaveRequest"
+            },
+            callSequence);
+
+        Assert.Equal(
+            1,
+            notificationService.CallCount);
+
+        Assert.Equal(
+            leaveRequest.Id,
+            notificationService.LeaveRequestId);
+
+        Assert.Equal(
+            leaveRequest.EmployeeId,
+            notificationService.EmployeeId);
+
+        Assert.Equal(
+            reviewerId,
+            notificationService.ReviewerEmployeeId);
+
+        Assert.Equal(
+            LeaveRequestStatus.Approved,
+            notificationService.Status);
+
+        Assert.Equal(
+            leaveRequest.ReviewedAtUtc!.Value,
+            notificationService.ReviewedAtUtc);
+
+        Assert.Equal(
+            cancellationToken,
+            notificationService.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Handle_SaveChangesFails_DoesNotNotify()
+    {
+        var reviewerId = Guid.NewGuid();
+        var leaveType = CreateLeaveType();
+        var leaveRequest =
+            CreateLeaveRequest(
+                leaveTypeId: leaveType.Id);
+
+        var callSequence = new List<string>();
+
+        var writeRepository =
+            new FakeLeaveRequestWriteRepository(
+                callSequence)
+            {
+                LeaveRequestResult = leaveRequest,
+                LeaveTypeResultFactory = _ => leaveType,
+                AllowApprovedUsedDays = true,
+                AllowSaveChanges = true,
+                SaveChangesException =
+                    new InvalidOperationException(
+                        "Simulated save failure.")
+            };
+
+        var employeeReadRepository =
+            CreateValidEmployeeReadRepository(
+                callSequence,
+                leaveRequest.EmployeeId,
+                reviewerId);
+
+        var leaveRequestReadRepository =
+            new FakeLeaveRequestReadRepository(
+                callSequence);
+
+        var notificationService =
+            new FakeLeaveRequestNotificationService(
+                callSequence);
+
+        var handler =
+            CreateHandler(
+                writeRepository,
+                leaveRequestReadRepository,
+                employeeReadRepository,
+                CreateManagerCurrentUserAccessService(
+                    callSequence,
+                    reviewerId),
+                notificationService);
+
+        var exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => handler.Handle(
+                    new ApproveLeaveRequestCommand(
+                        leaveRequest.Id,
+                        null),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "Simulated save failure.",
+            exception.Message);
+
+        Assert.Equal(
+            1,
+            writeRepository.SaveChangesCallCount);
+
+        Assert.Equal(
+            0,
+            notificationService.CallCount);
+
+        Assert.Equal(
+            0,
+            leaveRequestReadRepository.GetByIdCallCount);
+
+        Assert.Equal(
+            new[]
+            {
+                "GetCurrentUserAccess",
+                "GetForModification",
+                $"GetEmployeeById:{leaveRequest.EmployeeId}",
+                "GetLeaveType",
+                "GetApprovedUsedDaysForYear:2026",
+                "SaveChanges"
             },
             callSequence);
     }
@@ -816,7 +943,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             Result = null
         };
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -845,7 +972,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
                 "GetLeaveType",
                 "GetApprovedUsedDaysForYear:2026",
                 "SaveChanges",
-                "ReloadLeaveRequest"
+                "ReloadLeaveRequest",
             },
             callSequence);
     }
@@ -885,7 +1012,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             Result = expectedDto
         };
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -965,7 +1092,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             Result = expectedDto
         };
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             leaveRequestReadRepository,
             employeeReadRepository,
@@ -1056,7 +1183,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             leaveRequest.EmployeeId,
             reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
             employeeReadRepository,
@@ -1125,7 +1252,7 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             leaveRequest.EmployeeId,
             reviewerId);
 
-        var handler = new ApproveLeaveRequestCommandHandler(
+        var handler = CreateHandler(
             writeRepository,
             new FakeLeaveRequestReadRepository(callSequence),
             employeeReadRepository,
@@ -1351,6 +1478,63 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             DateTime.UtcNow);
     }
 
+    private static ApproveLeaveRequestCommandHandler CreateHandler(
+        ILeaveRequestWriteRepository writeRepository,
+        ILeaveRequestReadRepository leaveRequestReadRepository,
+        IEmployeeReadRepository employeeReadRepository,
+        ICurrentUserAccessService currentUserAccessService,
+        FakeLeaveRequestNotificationService? notificationService = null)
+    {
+        return new ApproveLeaveRequestCommandHandler(
+            writeRepository,
+            leaveRequestReadRepository,
+            employeeReadRepository,
+            currentUserAccessService,
+            notificationService
+                ?? new FakeLeaveRequestNotificationService());
+    }
+
+    private sealed class FakeLeaveRequestNotificationService(
+        List<string>? callSequence = null)
+        : ILeaveRequestNotificationService
+    {
+        public int CallCount { get; private set; }
+
+        public Guid LeaveRequestId { get; private set; }
+
+        public Guid EmployeeId { get; private set; }
+
+        public Guid ReviewerEmployeeId { get; private set; }
+
+        public LeaveRequestStatus Status { get; private set; }
+
+        public DateTime ReviewedAtUtc { get; private set; }
+
+        public CancellationToken CancellationToken { get; private set; }
+
+        public Task NotifyReviewCompletedAsync(
+            Guid leaveRequestId,
+            Guid employeeId,
+            Guid reviewerEmployeeId,
+            LeaveRequestStatus status,
+            DateTime reviewedAtUtc,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LeaveRequestId = leaveRequestId;
+            EmployeeId = employeeId;
+            ReviewerEmployeeId = reviewerEmployeeId;
+            Status = status;
+            ReviewedAtUtc = reviewedAtUtc;
+            CancellationToken = cancellationToken;
+
+            callSequence?.Add(
+                "NotifyReviewCompleted");
+
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class FakeCurrentUserAccessService(
         List<string> callSequence)
         : ICurrentUserAccessService
@@ -1408,6 +1592,8 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
         public bool AllowApprovedUsedDays { get; init; }
 
         public bool AllowSaveChanges { get; init; }
+
+        public Exception? SaveChangesException { get; init; }
 
         public Dictionary<int, int> ApprovedUsedDaysByYear
         {
@@ -1564,6 +1750,11 @@ public sealed class ApproveLeaveRequestCommandHandlerTests
             SaveChangesCallCount++;
             SaveChangesTokens.Add(cancellationToken);
             callSequence.Add("SaveChanges");
+
+            if (SaveChangesException is not null)
+            {
+                throw SaveChangesException;
+            }
 
             return Task.CompletedTask;
         }
