@@ -1,108 +1,142 @@
-# Personel Izin ve Onay Yonetim Sistemi
+# Personel İzin ve Onay Yönetim Sistemi
 
-Personel Izin ve Onay Yonetim Sistemi; calisanlarin izin taleplerini yonetmek, izin bakiyelerini takip etmek, yonetici onay sureclerini kontrol etmek ve insan kaynaklari raporlamasini desteklemek icin gelistirilen bir backend API projesidir.
+Personel İzin ve Onay Yönetim Sistemi; çalışanların izin taleplerini yönetmek, izin bakiyelerini takip etmek, yönetici onay süreçlerini kontrol etmek ve insan kaynakları raporlamasını desteklemek için geliştirilen bir backend API projesidir.
 
-Proje; ASP.NET Core Web API, Entity Framework Core, PostgreSQL, Clean Architecture, CQRS/MediatR, FluentValidation ve JWT Bearer Authentication kullanilarak katmanli bir yapi ile gelistirilmektedir.
+Proje; ASP.NET Core Web API, Entity Framework Core, PostgreSQL, Clean Architecture, CQRS/MediatR, FluentValidation, JWT Bearer Authentication, Docker/Docker Compose, structured logging ve EF Core tabanlı audit logging kullanılarak katmanlı bir yapı ile geliştirilmiştir.
 
-Bu repository, staj projesi kapsaminda fazlara ayrilmis sekilde gelistirilmektedir. Mevcut durumda Faz 1, Faz 2 ve Faz 3 kapsamindaki temel mimari, veritabani altyapisi, CRUD ve izin yonetimi, CQRS gecisi, JWT authentication, veritabani destekli authorization, takvim sorgusu ve departman izin istatistikleri tamamlanmistir.
+Bu repository, staj projesi kapsamında dört faz halinde geliştirilmiştir. Faz 1, Faz 2, Faz 3 ve Faz 4 tamamlanmıştır. Final durumda sistem; temel CRUD ve domain modelinden başlayarak izin bakiyesi ve onay kurallarını, CQRS ve JWT tabanlı güvenliği, rol/kaynak bazlı authorization'i, raporlamayı, containerized çalıştırma ortamlarını, development demo kullanıcılarını, notification logging'i ve audit trail'i uçtan uca kapsamaktadır.
 
 ---
 
 ## Proje Durumu
 
-| Faz | Kapsam | Durum |
-|---|---|---|
-| Faz 1 | Temel mimari, entity yapisi, EF Core, migration, seed data ve temel CRUD endpointleri | Tamamlandi |
-| Faz 2 | Is kurallari, validasyon, izin bakiyesi, onay akisi ve yonetici yetki kurallari | Tamamlandi |
-| Faz 3 | CQRS/MediatR, JWT authentication, claim ve role authorization, calendar query ve departman raporlama | Tamamlandi |
-| Faz 4 | Final dokumantasyon, teslim hazirligi ve gerekirse secili hardening calismalari | Planlandi |
+|Faz|Kapsam|Durum|
+|-|-|-|
+|Faz 1|Temel mimari, entity yapısı, EF Core, migration, seed data ve temel CRUD endpointleri|Tamamlandı|
+|Faz 2|İş kuralları, validasyon, izin bakiyesi, onay akışı ve yönetici yetki kuralları|Tamamlandı|
+|Faz 3|CQRS/MediatR, JWT authentication, claim ve role authorization, calendar query ve departman raporlama|Tamamlandı|
+|Faz 4|Dockerized API + PostgreSQL, health/migration startup, demo users, notification logging, audit logging ve final teslim hazırlığı|Tamamlandı|
 
 ---
 
-## Faz 1 Kapsaminda Tamamlananlar
+## Faz 1 Kapsamında Tamamlananlar
 
-- Domain, Application, Infrastructure ve WebAPI katmanlari olusturuldu.
-- `Employee`, `Department`, `LeaveType` ve `LeaveRequest` entity'leri tanimlandi.
-- `Employee` entity'sinde `ManagerId` ile self-referencing yonetici iliskisi kuruldu.
-- Entity Framework Core `AppDbContext` yapisi olusturuldu.
-- PostgreSQL baglantisi yapilandirildi.
-- Ilk migration olusturuldu ve basariyla uygulandi.
-- Varsayilan `LeaveType` kayitlari migration ile seed data olarak eklendi.
-- Local gelistirme ortami icin Docker Compose ile PostgreSQL kurulumu eklendi.
-- Employee icin temel CRUD endpointleri yazildi.
-- LeaveRequest icin temel CRUD endpointleri yazildi.
-- Swagger UI ile API endpointleri test edilebilir hale getirildi.
-- Temel integration test altyapisi olusturuldu.
-- Employee ve LeaveRequest CRUD akislari gercek PostgreSQL uzerinde test edildi.
-- Faz 1 endpointleri Swagger UI uzerinden manuel olarak dogrulandi.
-
----
-
-## Faz 2 Kapsaminda Tamamlananlar
-
-Faz 2 kapsaminda projeye izin yonetimi icin gercek is kurallari, bakiye hesabi ve onay akisi eklenmistir.
-
-Tamamlanan basliklar:
-
-- Izin bakiyesi hesaplama mantigi eklendi.
-- Yillik hak edis `EntitledDays`, `UsedDays` ve `RemainingDays` uzerinden temsil edildi.
-- Izin bakiyesi yil bazinda hesaplanir hale getirildi.
-- Cross-year izin talepleri ilgili yillara bolunerek hesaplanir hale getirildi.
-- Yillik hakki sifirdan buyuk izin turlerinde create, update ve approve akislari icin kalan izin bakiyesinin asilmasi engellendi.
-- Ayni calisan icin cakisan tarih araligina sahip gecerli izin talepleri engellendi.
-- Rejected izin taleplerinin yeni talepleri engellememesi saglandi.
-- Izin talebi yasam dongusu uygulandi: `Pending -> Approved / Rejected`.
-- Yalniz talebi acan calisanin dogrudan yoneticisinin approve/reject islemi yapabilmesi saglandi.
-- Employee, Manager ve HR rolleri icin is kurallari tanimlandi.
-- Employee, HR veya direct manager olmayan bir manager'in review yapmasi engellendi.
-- Yetki hatalari icin `403 Forbidden`, is kurali hatalari icin `400 Bad Request` donulmesi saglandi.
-- Review edilmis izin taleplerinin tekrar approve/reject edilmesi engellendi.
-- Yalniz `Pending` taleplerin update ve delete edilebilmesi saglandi.
-- Var olmayan izin talebi icin review isteginde `404 Not Found` davranisi korundu.
-- Zero allowance leave type davranisi test edildi.
-- Faz 2 integration test kapsami genisletildi; ayni davranislar Faz 3 CQRS gecisinde handler unit testleriyle de sabitlendi.
+* Domain, Application, Infrastructure ve WebAPI katmanları oluşturuldu.
+* `Employee`, `Department`, `LeaveType` ve `LeaveRequest` entity'leri tanımlandı.
+* `Employee` entity'sinde `ManagerId` ile self-referencing yönetici ilişkisi kuruldu.
+* Entity Framework Core `AppDbContext` yapısı oluşturuldu.
+* PostgreSQL bağlantısı yapılandırıldı.
+* İlk migration oluşturuldu ve başarıyla uygulandı.
+* Varsayılan `LeaveType` kayıtları migration ile seed data olarak eklendi.
+* Local geliştirme ortamı için Docker Compose ile PostgreSQL kurulumu eklendi.
+* Employee için temel CRUD endpointleri yazıldı.
+* LeaveRequest için temel CRUD endpointleri yazıldı.
+* Swagger UI ile API endpointleri test edilebilir hale getirildi.
+* Temel integration test altyapısı oluşturuldu.
+* Employee ve LeaveRequest CRUD akışları gerçek PostgreSQL üzerinde test edildi.
+* Faz 1 endpointleri Swagger UI üzerinden manuel olarak doğrulandı.
 
 ---
 
-## Faz 3 Kapsaminda Tamamlananlar
+## Faz 2 Kapsamında Tamamlananlar
 
-Faz 3 kapsaminda servis tabanli use-case'ler CQRS/MediatR yapisina tasinmis, JWT tabanli kimlik dogrulama eklenmis ve production endpointleri rol ile kaynak kapsamina gore korunmustur.
+Faz 2 kapsamında projeye izin yönetimi için gerçek iş kuralları, bakiye hesabı ve onay akışı eklenmiştir.
 
-Tamamlanan ana basliklar:
+Tamamlanan ana başlıklar:
 
-- MediatR ve FluentValidation Application katmanina eklendi.
-- Ortak `ValidationBehavior` pipeline'i olusturuldu.
-- Employee ve LeaveRequest use-case'leri Command/Query handler yapisina tasindi.
-- Controller'lar business logic calistirmak yerine `ISender` kullanir hale getirildi.
-- Legacy Employee ve LeaveRequest service yollari kontrollu gecis sonrasinda temizlendi.
-- Application, Infrastructure ve WebAPI unit test projeleri eklendi.
-- `UserAccount` domain modeli ve Employee ile one-to-one iliskisi eklendi.
-- Password hashing icin ASP.NET Core Identity `PasswordHasher` altyapisi kullanildi.
-- `POST /api/auth/login` CQRS login akisi eklendi.
-- JWT issuer, audience, signing key, expiration ve required-claim dogrulamalari eklendi.
-- Swagger UI icin Bearer authentication tanimi eklendi.
-- Token claim'lerinin guncel veritabani state'i ile tekrar dogrulanmasi saglandi.
-- Pasif UserAccount, pasif Employee ve token/DB role uyumsuzlugu engellendi.
-- Employee, Manager ve HR icin named authorization policy'leri eklendi.
-- Default ve fallback authorization kullanilarak production endpointleri varsayilan olarak korundu.
-- Login ve health endpointleri acikca `[AllowAnonymous]` olarak tanimlandi.
-- Employee administration endpointleri yalniz HR erisimine acildi.
-- Employee ve Manager icin kendi izinlerine yonelik self-service kapsamı, Manager icin active direct report okuma/review kapsami ve HR icin genis okuma/raporlama kapsami uygulandi.
-- Scope disi tekil kaynaklarda veri varligini sizdirmamak icin `404 Not Found` yaklasimi uygulandi.
-- Approve/reject reviewer identity'si request body yerine authenticated current user'dan turetilir hale getirildi.
-- HR'in approve/reject yapmasi engellendi.
-- Calendar/date-range sorgusu eklendi.
-- Calendar sorgusunda inclusive overlap ve rol bazli gorunurluk uygulandi.
-- HR-only departman izin istatistikleri raporu eklendi.
-- Departman raporunda PostgreSQL tarafinda `GroupBy`, `Count`, `Sum`, `Average` ve deterministik siralama uygulandi.
-- Authentication, authorization, Swagger metadata, calendar ve reporting davranislari unit ve integration testlerle dogrulandi.
-- Son feature-branch full-suite sonucu `524/524` basarili olarak dogrulandi.
+* İzin bakiyesi hesaplama mantığı eklendi.
+* Yıllık hak ediş `EntitledDays`, `UsedDays` ve `RemainingDays` üzerinden temsil edildi.
+* İzin bakiyesi yıl bazında hesaplanır hale getirildi.
+* Cross-year izin talepleri ilgili yıllara bölünerek hesaplanır hale getirildi.
+* Yıllık hakkı sıfırdan büyük izin türlerinde create, update ve approve akışları için kalan izin bakiyesinin aşılması engellendi.
+* Aynı çalışan için çakışan tarih aralığına sahip geçerli izin talepleri engellendi.
+* Rejected izin taleplerinin yeni talepleri engellememesi sağlandı.
+* İzin talebi yaşam döngüsü uygulandı: `Pending -> Approved / Rejected`.
+* Yalnız talebi açan çalışanın doğrudan yöneticisinin approve/reject işlemi yapabilmesi sağlandı.
+* Employee, Manager ve HR rolleri için iş kuralları tanımlandı.
+* Employee, HR veya direct manager olmayan bir manager'in review yapması engellendi.
+* Yetki hataları için `403 Forbidden`, iş kuralı hataları için `400 Bad Request` dönülmesi sağlandı.
+* Review edilmiş izin taleplerinin tekrar approve/reject edilmesi engellendi.
+* Yalnız `Pending` taleplerin update ve delete edilebilmesi sağlandı.
+* Var olmayan izin talebi için review isteğinde `404 Not Found` davranışı korundu.
+* Zero allowance leave type davranışı test edildi.
+* Faz 2 integration test kapsamı genişletildi; aynı davranışlar Faz 3 CQRS geçişinde handler unit testleriyle de sabitlendi.
 
 ---
 
-## Mimari Yapi
+## Faz 3 Kapsamında Tamamlananlar
 
-Proje Clean Architecture prensiplerine uygun katmanli bir yapi kullanmaktadir.
+Faz 3 kapsamında servis tabanlı use-case'ler CQRS/MediatR yapısına taşınmış, JWT tabanlı kimlik doğrulama eklenmiş ve production endpointleri rol ile kaynak kapsamına göre korunmuştur.
+
+Tamamlanan ana başlıklar:
+
+* MediatR ve FluentValidation Application katmanına eklendi.
+* Ortak `ValidationBehavior` pipeline'i oluşturuldu.
+* Employee ve LeaveRequest use-case'leri Command/Query handler yapısına taşındı.
+* Controller'lar business logic çalıştırmak yerine `ISender` kullanır hale getirildi.
+* Legacy Employee ve LeaveRequest service yolları kontrollü geçiş sonrasında temizlendi.
+* Application, Infrastructure ve WebAPI unit test projeleri eklendi.
+* `UserAccount` domain modeli ve Employee ile one-to-one ilişkisi eklendi.
+* Password hashing için ASP.NET Core Identity `PasswordHasher` altyapısı kullanıldı.
+* `POST /api/auth/login` CQRS login akışı eklendi.
+* JWT issuer, audience, signing key, expiration ve required-claim doğrulamaları eklendi.
+* Swagger UI için Bearer authentication tanımı eklendi.
+* Token claim'lerinin güncel veritabanı state'i ile tekrar doğrulanması sağlandı.
+* Pasif UserAccount, pasif Employee ve token/DB role uyumsuzluğu engellendi.
+* Employee, Manager ve HR için named authorization policy'leri eklendi.
+* Default ve fallback authorization kullanılarak production endpointleri varsayılan olarak korundu.
+* Login ve health endpointleri açıkça `[AllowAnonymous]` olarak tanımlandı.
+* Employee administration endpointleri yalnız HR erişimine açıldı.
+* Employee ve Manager için kendi izinlerine yönelik self-service kapsamı, Manager için active direct report okuma/review kapsamı ve HR için geniş okuma/raporlama kapsamı uygulandı.
+* Scope dışı tekil kaynaklarda veri varlığını sızdırmamak için `404 Not Found` yaklaşımı uygulandı.
+* Approve/reject reviewer identity'si request body yerine authenticated current user'dan türetilir hale getirildi.
+* HR'in approve/reject yapması engellendi.
+* Calendar/date-range sorgusu eklendi.
+* Calendar sorgusunda inclusive overlap ve rol bazlı görünürlük uygulandı.
+* HR-only departman izin istatistikleri raporu eklendi.
+* Departman raporunda PostgreSQL tarafında `GroupBy`, `Count`, `Sum`, `Average` ve deterministik sıralama uygulandı.
+* Authentication, authorization, Swagger metadata, calendar ve reporting davranışları unit ve integration testlerle doğrulandı.
+* Son feature-branch full-suite sonucu `524/524` başarılı olarak doğrulandı.
+
+---
+
+## Faz 4 Kapsamında Tamamlananlar
+
+Faz 4 kapsamında sistemin test güvencesi, container çalıştırma modeli ve operasyonel gözlemlenebilirliği tamamlanmış; local/demo ortamında tekrar edilebilir bir kurulum akışı oluşturulmuştur.
+
+Tamamlanan ana başlıklar:
+
+* Web API için .NET 10 SDK -> publish -> ASP.NET Core runtime adımlarını kullanan multi-stage `Dockerfile` eklendi.
+* Docker build context'inden `.git`, `.vs`, `bin`, `obj`, `.env`, `TestResults` ve editor artefact'larını dışlayan `.dockerignore` eklendi.
+* Docker Compose ile `postgres:17-alpine` ve Web API birlikte çalışır hale getirildi.
+* PostgreSQL container'i için `pg_isready`, API container'i için `/api/health` tabanlı healthcheck eklendi.
+* `/api/health` yalnız API process'ini değil, EF Core üzerinden PostgreSQL bağlantısını da doğrular hale getirildi.
+* Docker ortamında API `8080` portunda çalışır ve host tarafında `5252` portuna publish edilir.
+* Startup migration davranışı `DatabaseInitialization:ApplyMigrationsOnStartup` ile kontrollü hale getirildi; varsayılan uygulama ayarı `false`, Docker demo ayarı `true` olarak tutuldu.
+* Startup migration için sınırlı retry uygulandı; retry global EF Core execution strategy'ye taşınmadı ve normal application transaction davranışı korunmuş oldu.
+* Local secret/configuration için `.env` Git dışında tutuldu; repository'ye yalnız placeholder değerler içeren `.env.example` eklendi.
+* `DemoData` configuration modeli ve conditional validation eklendi. Seeding açıksa password zorunlu, kapalıysa password zorunlu değildir.
+* Development ortamında Employee, Manager ve HR rollerini kapsayan configurable demo data seeding eklendi.
+* Demo seeding transaction içinde çalışır, tekrar çalıştırıldığında duplicate üretmez ve mevcut password hash'lerini gereksiz yere yenilemez.
+* Demo Employee, güncel demo Manager'a direct report olarak bağlanır; beklenmeyen role, department, manager veya password uyumsuzlukları sessizce düzeltilmek yerine açık hata ile durdurulur.
+* Approve ve Reject akışları için `ILeaveRequestNotificationService` abstraction'i ve structured `ILogger` tabanlı notification simulation eklendi.
+* Notification log'u yalnız başarılı `SaveChangesAsync` sonrasında üretilir; business-rule veya persistence failure durumunda notification üretilmez.
+* Notification log'unda `NotificationType`, `LeaveRequestId`, `EmployeeId`, `ReviewerEmployeeId`, `Status` ve entity üzerinde oluşan gerçek `ReviewedAtUtc` tutulur; manager comment veya email gibi içerikler loglanmaz.
+* `AuditLog` tablosu ve `AuditAction` modeli eklendi.
+* EF Core `SaveChangesInterceptor` ile `Employee` ve `LeaveRequest` mutation'ları aynı persistence akışı içinde audit edilir.
+* Audit action'ları `Created`, `Updated`, `Deleted`, `Approved` ve `Rejected` olarak ayrılır; `Pending -> Approved/Rejected` geçişleri EF change tracking üzerinden tespit edilir.
+* Audit kaydında actor olarak authenticated `EmployeeId`, system/seed işlemlerinde `null`, olay zamanı olarak `OccurredAtUtc` saklanır.
+* `ChangedPropertiesJson` içinde yalnız property isimleri tutulur; eski/yeni property değerleri, reason, manager comment, email, password hash veya secret değerleri audit'e yazılmaz.
+* Audit kapsamı bilerek `Employee` ve `LeaveRequest` ile sınırlıdır; `Department`, `LeaveType`, `UserAccount` ve `AuditLog` kendisi audit edilmez.
+* `AddAuditLogs` migration'i ile `AuditLogs` tablosu ve ilgili index'ler PostgreSQL'e eklendi; `ActorEmployeeId` tarihsel scalar kimlik olarak tutulur ve FK/navigation tanımlanmaz.
+* Demo configuration ve seeding için unit/integration testler; notification success/failure davranışı için handler testleri; audit davranışı için gerçek PostgreSQL integration testi eklendi.
+* Son kesin doğrulanan full-suite sonucu `529/529` başarılıdır.
+
+---
+
+## Mimari Yapı
+
+Proje Clean Architecture prensiplerine uygun katmanlı bir yapı kullanmaktadır.
 
 ```text
 src/
@@ -118,86 +152,116 @@ tests/
   LeaveManagementSystem.WebAPI.UnitTests
 ```
 
-### Katmanlarin Sorumluluklari
+### Katmanların Sorumlulukları
 
-| Katman | Sorumluluk |
-|---|---|
-| Domain | Entity'ler, enum'lar ve cekirdek domain davranislari |
-| Application | Command/Query, handler, validator, DTO, repository abstraction'lari ve application-level exception'lar |
-| Infrastructure | EF Core, PostgreSQL, DbContext, repository implementasyonlari, password hashing ve JWT token generation |
-| WebAPI | Controller'lar, authentication/authorization pipeline'i, HTTP endpointleri, exception mapping ve Swagger konfigurasyonu |
-| Application.UnitTests | Handler, validator, rule sirasi ve fake repository tabanli hizli unit testler |
-| Infrastructure.UnitTests | Password hashing, JWT options validation ve JWT token generation unit testleri |
-| WebAPI.UnitTests | Authorization handler ve HTTP result/exception handler unit testleri |
-| IntegrationTests | Gercek HTTP pipeline'i, OpenAPI metadata'si ve gercek PostgreSQL sorgulari uzerinden integration testleri |
+|Katman|Sorumluluk|
+|-|-|
+|Domain|Entity'ler, enum'lar ve çekirdek domain davranışları; audit modeli ve action enum'u|
+|Application|Command/Query, handler, validator, DTO, repository/notification abstraction'ları ve application-level exception'lar|
+|Infrastructure|EF Core, PostgreSQL, DbContext, repository implementasyonları, password hashing, JWT token generation, demo seeding, structured notification logging ve audit interceptor|
+|WebAPI|Controller'lar, authentication/authorization pipeline'i, HTTP endpointleri, exception mapping, Swagger, health checks ve startup orchestration|
+|Application.UnitTests|Handler, validator, rule sırası, authorization davranışı ve notification fake'leriyle hızlı unit testler|
+|Infrastructure.UnitTests|Password hashing, JWT options validation, JWT token generation ve demo configuration validation unit testleri|
+|WebAPI.UnitTests|Authorization handler, JWT/current-user ve HTTP result/exception handler unit testleri|
+|IntegrationTests|Gerçek HTTP pipeline'i, OpenAPI metadata'sı ve gerçek PostgreSQL üzerinden CRUD, auth, business rules, demo seeding, reporting ve audit testleri|
 
-Guncel CQRS request akisi:
+Güncel CQRS request akışı:
 
 ```text
 Controller
   -> ISender
     -> Command / Query
       -> Handler
-        -> Application repository abstraction
+        -> Application abstraction
           -> Infrastructure implementation
             -> AppDbContext
               -> PostgreSQL
 ```
 
-Authentication ve authorization akisi:
+Authentication ve authorization akışı:
 
 ```text
 Bearer token
   -> Signature / issuer / audience / lifetime validation
     -> Required claim validation
-      -> UserAccount ve Employee DB kontrolu
-        -> Guncel role ve active-state kontrolu
+      -> UserAccount ve Employee DB kontrolü
+        -> Güncel role ve active-state kontrolü
           -> Named policy / resource scope
-            -> Application use-case authorization kontrolu
+            -> Application use-case authorization kontrolü
 ```
 
-Bu yapi sayesinde WebAPI katmani dogrudan `AppDbContext` ile calismaz. Application katmani EF Core veya Npgsql bilmez; veritabani implementasyonlari Infrastructure katmaninda tutulur.
+Docker startup akışı:
+
+```text
+Docker Compose
+  -> PostgreSQL healthcheck
+    -> Web API start
+      -> controlled migration + limited retry
+        -> optional Development demo seed
+          -> API + PostgreSQL healthcheck
+```
+
+Review ve observability akışı:
+
+```text
+Approve / Reject
+  -> domain state change
+    -> SaveChangesAsync
+      -> AuditSaveChangesInterceptor -> AuditLogs
+        -> successful persistence
+          -> structured notification log
+            -> reloaded response DTO
+```
+
+Bu yapı sayesinde WebAPI katmanı doğrudan `AppDbContext` ile business logic çalıştırmaz. Application katmanı EF Core, Npgsql, `HttpContext` veya concrete logging implementasyonlarını bilmez; persistence, JWT, demo seeding, audit ve notification implementasyonları Infrastructure katmanında tutulur.
 
 ---
 
-## Kullanilan Teknolojiler
+## Kullanılan Teknolojiler
 
-- C#
-- .NET 10
-- ASP.NET Core Web API
-- Entity Framework Core 10
-- PostgreSQL
-- Npgsql
-- Docker Compose
-- MediatR
-- FluentValidation
-- ASP.NET Core Identity PasswordHasher
-- JWT Bearer Authentication
-- Swagger / Swashbuckle
-- xUnit
-- WebApplicationFactory
-- Git / GitHub
-- GitHub Desktop
+* C#
+* .NET 10
+* ASP.NET Core Web API
+* Entity Framework Core 10
+* PostgreSQL 17
+* Npgsql
+* Docker
+* Docker Compose
+* ASP.NET Core Health Checks
+* MediatR
+* FluentValidation
+* ASP.NET Core Identity PasswordHasher
+* JWT Bearer Authentication
+* Swagger / Swashbuckle
+* Structured logging (`ILogger`)
+* xUnit
+* WebApplicationFactory
+* Git / GitHub
+* GitHub Desktop
 
 ---
 
-## Domain Model Ozeti
+
+
+## Domain Model Özeti
+
+
 
 ### Employee
 
-Calisan bilgisini temsil eder.
+Çalışan bilgisini temsil eder.
 
-One cikan alanlar:
+Öne çıkan alanlar:
 
-- `FirstName`
-- `LastName`
-- `Email`
-- `DepartmentId`
-- `ManagerId`
-- `Role`
-- `IsActive`
+* `FirstName`
+* `LastName`
+* `Email`
+* `DepartmentId`
+* `ManagerId`
+* `Role`
+* `IsActive`
 
-`ManagerId` alani ile ayni tablo uzerinde self-referencing iliski kurulmustur. Boylece bir calisan baska bir calisanin yoneticisi olabilir.
+`ManagerId` alanı ile aynı tablo üzerinde self-referencing ilişki kurulmuştur. Böylece bir çalışan başka bir çalışanın yöneticisi olabilir.
 
 ```text
 Employee
@@ -205,17 +269,21 @@ Employee
   -> DirectReports
 ```
 
-Employee delete islemi soft delete olarak uygulanir. Calisan veritabanindan fiziksel olarak silinmez; `IsActive` degeri `false` yapilir.
+Employee delete işlemi soft delete olarak uygulanır. Çalışan veritabanından fiziksel olarak silinmez; `IsActive` değeri `false` yapılır.
+
+
 
 ### Department
 
-Calisanin bagli oldugu departmani temsil eder.
+Çalışanın bağlı olduğu departmanı temsil eder.
 
-Departman izin istatistikleri, izin talebinin olusturuldugu tarihteki tarihsel snapshot'a gore degil, sorgu aninda calisanin bagli oldugu guncel departmana gore gruplanir.
+Departman izin istatistikleri, izin talebinin oluşturulduğu tarihteki tarihsel snapshot'a göre değil, sorgu anında çalışanın bağlı olduğu güncel departmana göre gruplanır.
+
+
 
 ### LeaveType
 
-Izin turunu temsil eder. Varsayilan izin turleri migration ile veritabanina eklenir:
+İzin türünü temsil eder. Varsayılan izin türleri migration ile veritabanına eklenir:
 
 ```text
 Annual Leave
@@ -223,188 +291,235 @@ Sick Leave
 Unpaid Leave
 ```
 
-One cikan alanlar:
+Öne çıkan alanlar:
 
-- `Name`
-- `DefaultAnnualAllowanceDays`
-- `IsPaid`
+* `Name`
+* `DefaultAnnualAllowanceDays`
+* `IsPaid`
 
-`DefaultAnnualAllowanceDays`, ilgili izin turu icin varsayilan yillik hak edis gun sayisini temsil eder.
+`DefaultAnnualAllowanceDays`, ilgili izin türü için varsayılan yıllık hak ediş gün sayısını temsil eder.
 
-Zero allowance icin guncel davranis:
+Zero allowance için güncel davranış:
 
 ```text
 DefaultAnnualAllowanceDays = 0
--> approved usage sorgusu yapilir
+-> approved usage sorgusu yapılır
 -> insufficient-balance restriction uygulanmaz
--> diger review kurallari uygunsa approval devam edebilir
+-> diğer review kuralları uygunsa approval devam edebilir
 ```
 
 ### LeaveRequest
 
-Bir calisanin izin talebini temsil eder.
+Bir çalışanın izin talebini temsil eder.
 
-One cikan alanlar:
+Öne çıkan alanlar:
 
-- `EmployeeId`
-- `LeaveTypeId`
-- `StartDate`
-- `EndDate`
-- `RequestedDays`
-- `Status`
-- `Reason`
-- `ManagerComment`
-- `ReviewedAtUtc`
-- `ReviewedByEmployeeId`
+* `EmployeeId`
+* `LeaveTypeId`
+* `StartDate`
+* `EndDate`
+* `RequestedDays`
+* `Status`
+* `Reason`
+* `ManagerComment`
+* `ReviewedAtUtc`
+* `ReviewedByEmployeeId`
 
-Yeni olusturulan izin talepleri varsayilan olarak `Pending` durumunda baslar. `RequestedDays` degeri inclusive tarih araligina gore otomatik hesaplanir.
+Yeni oluşturulan izin talepleri varsayılan olarak `Pending` durumunda başlar. `RequestedDays` değeri inclusive tarih aralığına göre otomatik hesaplanır.
 
-Izin talebi status akisi:
+İzin talebi status akışı:
 
 ```text
 Pending -> Approved
 Pending -> Rejected
 ```
 
-Approved veya Rejected durumuna gecmis talepler tekrar review edilemez. Yalniz `Pending` talepler update veya delete edilebilir.
+Approved veya Rejected durumuna geçmiş talepler tekrar review edilemez. Yalnız `Pending` talepler update veya delete edilebilir.
+
+
 
 ### UserAccount
 
-JWT login yapabilen kullanici hesabini temsil eder.
+JWT login yapabilen kullanıcı hesabını temsil eder.
 
-One cikan alanlar:
+Öne çıkan alanlar:
 
-- `EmployeeId`
-- `PasswordHash`
-- `IsActive`
-- `CreatedAtUtc`
-- `UpdatedAtUtc`
+* `EmployeeId`
+* `PasswordHash`
+* `IsActive`
+* `CreatedAtUtc`
+* `UpdatedAtUtc`
 
 Kurallar:
 
-- Her UserAccount bir Employee'ye baglidir.
-- Employee basina en fazla bir UserAccount bulunur.
-- Plain-text password veritabaninda saklanmaz.
-- UserAccount ve bagli Employee aktif degilse login veya protected endpoint erisimi verilmez.
-- Token role claim'i, guncel Employee role degeri ile uyusmalidir.
+* Her UserAccount bir Employee'ye bağlıdır.
+* Employee başına en fazla bir UserAccount bulunur.
+* Plain-text password veritabanında saklanmaz.
+* UserAccount ve bağlı Employee aktif değilse login veya protected endpoint erişimi verilmez.
+* Token role claim'i, güncel Employee role değeri ile uyuşmalıdır.
 
 ---
 
-## Is Kurallari Ozeti
+### AuditLog
 
-### Izin Bakiyesi
+`Employee` ve `LeaveRequest` mutation'ları için tarihsel audit kaydını temsil eder.
 
-Izin bakiyesi yil bazinda hesaplanir.
+Öne çıkan alanlar:
+
+* `Id`
+* `EntityName`
+* `EntityId`
+* `Action`
+* `ChangedPropertiesJson`
+* `ActorEmployeeId`
+* `OccurredAtUtc`
+
+`AuditAction` değerleri:
+
+```text
+Created
+Updated
+Deleted
+Approved
+Rejected
+```
+
+Kurallar:
+
+* `AuditLog`, `BaseEntity` kullanmaz; olay zamanı semantik olarak `OccurredAtUtc` alanında tutulur.
+* `ActorEmployeeId` nullable scalar kimliktir; Employee ile FK/navigation kurulmaz.
+* Authenticated HTTP request'lerinde actor current Employee'dir; seed/system context'lerinde actor `null` olabilir.
+* `ChangedPropertiesJson` yalnız değişen property isimlerini JSON array olarak tutar; property değerlerini tutmaz.
+* Modified kayıtlarda teknik `UpdatedAtUtc` alanı changed-properties listesinden çıkartılır.
+* Audit kapsamı yalnız `Employee` ve `LeaveRequest` mutation'larıdır.
+
+---
+
+## İş Kuralları Özeti
+
+### İzin Bakiyesi
+
+İzin bakiyesi yıl bazında hesaplanır.
 
 ```text
 EntitledDays - UsedDays = RemainingDays
 ```
 
-- `EntitledDays`: Ilgili izin turu icin yillik hak edilen gun sayisi
-- `UsedDays`: Ilgili yil icinde approved izin gunleri
-- `RemainingDays`: Kalan izin gunu
+* `EntitledDays`: İlgili izin türü için yıllık hak edilen gün sayısı
+* `UsedDays`: İlgili yıl içinde approved izin günleri
+* `RemainingDays`: Kalan izin günü
 
-Yalniz `Approved` durumdaki izin talepleri kullanilmis izin olarak sayilir.
+Yalnız `Approved` durumdaki izin talepleri kullanılmış izin olarak sayılır.
 
-Approve sirasinda incelenen mevcut talep, approved usage hesabinda tekrar sayilmaz.
+Approve sırasında incelenen mevcut talep, approved usage hesabında tekrar sayılmaz.
 
-### Cross-Year Izinler
+### Cross-Year İzinler
 
-Bir izin talebi birden fazla yila yayiliyorsa gunler ilgili yillara bolunur.
+Bir izin talebi birden fazla yıla yayılıyorsa günler ilgili yıllara bölünür.
 
-Ornek:
+Örnek:
 
 ```text
 2026-12-30 -> 2027-01-02
 ```
 
-Bu talep toplam 4 gun surer:
+Bu talep toplam 4 gün sürer:
 
 ```text
-2026: 2 gun
-2027: 2 gun
+2026: 2 gün
+2027: 2 gün
 ```
 
-Balance kontrolu her yil icin ayri yapilir.
+Balance kontrolü her yıl için ayrı yapılır.
 
-### Overlap Kontrolu
+### Overlap Kontrolü
 
-Ayni calisan icin cakisan tarih araligina sahip gecerli izin talepleri engellenir.
+Aynı çalışan için çakışan tarih aralığına sahip geçerli izin talepleri engellenir.
 
-Rejected durumdaki izin talepleri yeni izin taleplerini engellemez. Boylece reddedilmis bir talep sonrasinda ayni tarih araligi icin yeni talep olusturulabilir.
+Rejected durumdaki izin talepleri yeni izin taleplerini engellemez. Böylece reddedilmiş bir talep sonrasında aynı tarih aralığı için yeni talep oluşturulabilir.
 
-Calendar sorgusunda overlap inclusive olarak hesaplanir:
+Calendar sorgusunda overlap inclusive olarak hesaplanır:
 
 ```text
 LeaveRequest.StartDate <= queryEnd
 && queryStart <= LeaveRequest.EndDate
 ```
 
-### Onay Kurali
+### Onay Kuralı
 
-Bir izin talebi yalniz authenticated current user olan ve talebi acan calisanin guncel dogrudan yoneticisi konumundaki Manager tarafindan approve veya reject edilebilir.
+Bir izin talebi yalnız authenticated current user olan ve talebi açan çalışanın güncel doğrudan yöneticisi konumundaki Manager tarafından approve veya reject edilebilir.
 
-Reviewer identity istemciden alinmaz:
+Reviewer identity istemciden alınmaz:
 
 ```text
 JWT current user
 -> current EmployeeId
 -> Approve / Reject command
--> current direct-manager kontrolu
+-> current direct-manager kontrolü
 ```
 
-Asagidaki kullanicilar approve/reject yapamaz:
+Aşağıdaki kullanıcılar approve/reject yapamaz:
 
-- Talebi acan Employee
-- HR kullanicisi
-- Baska bir Manager
-- Talebi acan calisanin guncel direct manager'i olmayan Manager
-- Pasif UserAccount veya pasif Employee
-- Token role claim'i guncel DB role ile uyusmayan kullanici
+* Talebi açan Employee
+* HR kullanıcısı
+* Başka bir Manager
+* Talebi açan çalışanın güncel direct manager'i olmayan Manager
+* Pasif UserAccount veya pasif Employee
+* Token role claim'i güncel DB role ile uyuşmayan kullanıcı
 
-### Authorization Kapsami
 
-| Rol | Temel erisim kapsami |
-|---|---|
-| Employee | Kendi izin kayitlari ve self-service islemleri |
-| Manager | Kendi self-service islemleri; guncel ve aktif direct report kayitlarini okuma ve review |
-| HR | Kendi self-service islemleri; Employee administration, genis leave read kapsami ve raporlama |
+
+### Authorization Kapsamı
+
+|Rol|Temel erişim kapsamı|
+|-|-|
+|Employee|Kendi izin kayıtları ve self-service işlemleri|
+|Manager|Kendi self-service işlemleri; güncel ve aktif direct report kayıtlarını okuma ve review|
+|HR|Kendi self-service işlemleri; Employee administration, geniş leave read kapsamı ve raporlama|
+
+
 
 Ek kurallar:
 
-- Employee administration endpointleri HR-only'dir.
-- Manager'in genel collection ve calendar scope'una kendi izin kayitlari otomatik olarak dahil edilmez; bu akislarda yalniz guncel ve aktif direct report kayitlari doner.
-- Manager kendi izin kayitlarina `/api/leave-requests/mine`, kendi kaydi icin by-id ve self-service endpointleri uzerinden erisebilir.
-- Pasif direct report, Manager collection ve calendar scope'una dahil edilmez.
-- HR genis okuma ve raporlama yapabilir ancak approve/reject yapamaz.
-- Scope disi tekil kaynaklar, kaydin varligini sizdirmamak icin `404 Not Found` donebilir.
-- Token claim'leri tek basina authoritative degildir; guncel DB state'i kontrol edilir.
+* Employee administration endpointleri HR-only'dir.
+* Manager'in genel collection ve calendar scope'una kendi izin kayıtları otomatik olarak dahil edilmez; bu akışlarda yalnız güncel ve aktif direct report kayıtları döner.
+* Manager kendi izin kayıtlarına `/api/leave-requests/mine`, kendi kaydı için by-id ve self-service endpointleri üzerinden erişebilir.
+* Pasif direct report, Manager collection ve calendar scope'una dahil edilmez.
+* HR geniş okuma ve raporlama yapabilir ancak approve/reject yapamaz.
+* Scope dışı tekil kaynaklar, kaydın varlığını sızdırmamak için `404 Not Found` dönebilir.
+* Token claim'leri tek başına authoritative değildir; güncel DB state'i kontrol edilir.
 
-### Employee Administration Kurallari
 
-- Employee administration yalniz guncel ve aktif HR kullanicilari tarafindan yapilabilir.
-- Manager olarak atanacak Employee mevcut, aktif ve `Manager` rolunde olmalidir.
-- Bir Employee kendisinin manager'i olarak atanamaz.
-- Manager hiyerarsisinde cycle olusturulamaz.
-- Aktif direct report'u bulunan bir Manager pasif hale getirilemez veya baska bir role gecirilemez.
-- Aktif direct report'u bulunan bir Employee soft delete ile pasif hale getirilemez.
-- Aktif UserAccount'a bagli son aktif HR administrator pasif hale getirilemez veya HR disinda bir role gecirilemez.
 
-### Lifecycle Kurallari
+### Employee Administration Kuralları
 
-- Yeni izin talebi `Pending` olarak olusturulur.
-- Yalniz `Pending` talepler update edilebilir.
-- Yalniz `Pending` talepler delete edilebilir.
-- Yalniz `Pending` talepler approve/reject edilebilir.
-- Approved veya Rejected talepler tekrar review edilemez.
-- LeaveRequest delete mevcut kontratta `Pending` kayit icin fiziksel silmedir.
-- Employee delete soft delete olarak uygulanir.
+* Employee administration yalnız güncel ve aktif HR kullanıcıları tarafından yapılabilir.
+* Manager olarak atanacak Employee mevcut, aktif ve `Manager` rolunde olmalıdır.
+* Bir Employee kendisinin manager'i olarak atanamaz.
+* Manager hiyerarşisinde cycle oluşturulamaz.
+* Aktif direct report'u bulunan bir Manager pasif hale getirilemez veya başka bir role geçirilemez.
+* Aktif direct report'u bulunan bir Employee soft delete ile pasif hale getirilemez.
+* Aktif UserAccount'a bağlı son aktif HR administrator pasif hale getirilemez veya HR dışında bir role geçirilemez.
 
-### Departman Izin Istatistikleri
 
-Departman raporu yalniz `Approved` izin taleplerini hesaplar.
 
-Her departman icin:
+### Lifecycle Kuralları
+
+* Yeni izin talebi `Pending` olarak oluşturulur.
+* Yalnız `Pending` talepler update edilebilir.
+* Yalnız `Pending` talepler delete edilebilir.
+* Yalnız `Pending` talepler approve/reject edilebilir.
+* Approved veya Rejected talepler tekrar review edilemez.
+* LeaveRequest delete mevcut kontratta `Pending` kayıt için fiziksel silmedir.
+* Employee delete soft delete olarak uygulanır.
+
+
+
+### Departman İzin İstatistikleri
+
+Departman raporu yalnız `Approved` izin taleplerini hesaplar.
+
+Her departman için:
 
 ```text
 ApprovedRequestCount
@@ -412,37 +527,47 @@ TotalApprovedLeaveDays
 AverageApprovedLeaveDaysPerRequest
 ```
 
-uretilir.
+üretilir.
+
+
 
 Kurallar:
 
-- Pending ve Rejected talepler hesaba katilmaz.
-- Gruplama, calisanin sorgu anindaki guncel departmanina gore yapilir.
-- Onayli talebi olmayan departmanlar response'ta listelenmez.
-- Sonuclar `DepartmentName`, ardindan `DepartmentId` ile deterministik siralanir.
-- Filtreleme, grouping, `Count`, `Sum`, `Average` ve siralama PostgreSQL tarafinda calisir.
-- PostgreSQL'den yalniz departman bazli aggregate sonuc satirlari alinir; ham `LeaveRequest` kayitlari bellekte gruplanmaz.
-- Veritabani tarafinda hesaplanan average sonucu, materialization sonrasinda DTO'nun `decimal` alanina donusturulur.
-- Provider-specific sorgu davranisi gercek PostgreSQL integration testiyle dogrulanmistir.
+* Pending ve Rejected talepler hesaba katılmaz.
+* Gruplama, çalışanın sorgu anındaki güncel departmanına göre yapılır.
+* Onaylı talebi olmayan departmanlar response'ta listelenmez.
+* Sonuçlar `DepartmentName`, ardından `DepartmentId` ile deterministik sıralanır.
+* Filtreleme, grouping, `Count`, `Sum`, `Average` ve sıralama PostgreSQL tarafında çalışır.
+* PostgreSQL'den yalnız departman bazlı aggregate sonuç satırları alınır; ham `LeaveRequest` kayıtları bellekte gruplanmaz.
+* Veritabanı tarafında hesaplanan average sonucu, materialization sonrasında DTO'nun `decimal` alanına dönüştürülür.
+* Provider-specific sorgu davranışı gerçek PostgreSQL integration testiyle doğrulanmıştır.
 
 ---
 
+
+
 ## Gereksinimler
 
-Projeyi calistirmak icin asagidaki araclarin kurulu olmasi gerekir:
+Projeyi çalıştırmak için aşağıdaki araçların kurulu olması gerekir:
 
-- .NET 10 SDK
-- Docker Desktop
-- Git
-- DBeaver, pgAdmin veya benzeri bir veritabani araci
+* .NET 10 SDK
+* Docker Desktop ve Docker Compose
+* Git
+* DBeaver, pgAdmin veya benzeri bir veritabanı aracı (opsiyonel)
 
-Entity Framework CLI yuklu degilse asagidaki komut ile kurulabilir:
+Entity Framework CLI yüklü değilse aşağıdaki komut ile kurulabilir:
+
+
 
 ```bash
 dotnet tool install --global dotnet-ef
 ```
 
-JWT icin asagidaki configuration alanlari gereklidir:
+### JWT Configuration
+
+JWT için aşağıdaki configuration alanları kullanılır:
+
+
 
 ```text
 Jwt:Issuer
@@ -451,11 +576,11 @@ Jwt:SigningKey
 Jwt:AccessTokenExpirationMinutes
 ```
 
-`Jwt:SigningKey` en az 32 UTF-8 byte olmalidir. `Jwt:AccessTokenExpirationMinutes` degeri 1 ile 1440 arasinda olmalidir.
+`Jwt:SigningKey` en az 32 UTF-8 byte olmalıdır. `Jwt:AccessTokenExpirationMinutes` değeri 1 ile 1440 arasında olmalıdır.
 
-Gercek production signing key repository'ye veya README'ye yazilmamalidir. Environment variable, user secrets veya guvenli configuration kullanilmalidir.
+Gerçek production signing key repository'ye veya README'ye yazılmamalıdır. Environment variable, user secrets veya güvenli secret/configuration mekanizması kullanılmalıdır.
 
-Environment variable adlari ASP.NET Core configuration formatinda su sekilde verilebilir:
+Environment variable adları ASP.NET Core configuration formatında şu şekildedir:
 
 ```text
 Jwt__Issuer
@@ -464,93 +589,249 @@ Jwt__SigningKey
 Jwt__AccessTokenExpirationMinutes
 ```
 
+### Database Initialization
+
+Startup migration davranışı şu configuration ile kontrol edilir:
+
+
+
+```text
+DatabaseInitialization:ApplyMigrationsOnStartup
+```
+
+Varsayılan `appsettings.json` değeri `false`'tur. Docker Compose demo ortamında bu değer:
+
+```text
+DatabaseInitialization__ApplyMigrationsOnStartup=true
+```
+
+olarak override edilir. Migration startup'ta sınırlı retry ile uygulanır; retry tükendiğinde uygulama başlatma hatasını gizlemez.
+
+
+
+### Demo Data Configuration
+
+Development demo kullanıcıları için:
+
+```text
+DemoData:SeedOnStartup
+DemoData:Password
+```
+
+kullanılır.
+
+
+
+Kurallar:
+
+* `SeedOnStartup=false` ise password zorunlu değildir.
+* `SeedOnStartup=true` ise `DemoData:Password` boş olamaz.
+* Seeder yalnız Development ortamında startup akisine bağlıdır.
+* Docker Compose değerleri `.env` dosyasından `DEMO_DATA_SEED_ON_STARTUP` ve `DEMO_DATA_PASSWORD` ile alır.
+* Gerçek `.env` dosyası Git ve Docker build context'i dışında tutulur.
+
+Repository'deki `.env.example` şu değişkenleri tanımlar:
+
+```text
+POSTGRES_DB
+POSTGRES_USER
+POSTGRES_PASSWORD
+JWT_SIGNING_KEY
+DEMO_DATA_SEED_ON_STARTUP
+DEMO_DATA_PASSWORD
+```
+
 ---
 
-## Projeyi Calistirma
 
-Asagidaki komutlar repository ana dizininde calistirilmalidir.
 
-### 1. Repository'yi klonlama
+## Projeyi Çalıştırma
+
+Aşağıdaki komutlar repository ana dizininde çalıştırılmalıdır.
+
+
+
+### Seçenek A - Docker Compose ile Tüm Sistemi Çalıştırma
+
+Final demo ve hızlı kurulum için önerilen yol budur.
+
+
+
+#### 1. Repository'yi klonlama
 
 ```bash
 git clone <repository-url>
 cd leave-management-system
 ```
 
-### 2. PostgreSQL'i Docker Compose ile baslatma
+#### 2. Local `.env` dosyasını oluşturma
+
+Repository'deki `.env.example` dosyasını `.env` olarak kopyalayın.
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Bash:
 
 ```bash
-docker compose up -d
+cp .env.example .env
 ```
 
-Local PostgreSQL baglanti bilgileri:
+Ardından `.env` içindeki placeholder değerleri local development için değiştirin. Örnek:
 
 ```text
-Host: localhost
-Port: 5432
-Database: leave_management_db
-Username: postgres
-Password: postgres
+POSTGRES_DB=leave_management_db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+JWT_SIGNING_KEY=local-development-jwt-signing-key-at-least-32-bytes-2026
+DEMO_DATA_SEED_ON_STARTUP=true
+DEMO_DATA_PASSWORD=Demo123!
 ```
 
-Bu bilgiler yalniz local development ornegidir. Production ortaminda guvenli secret/configuration kullanilmalidir.
+Bu değerler yalnız local development örneğidir. Production secret'ları bu şekilde repository'de veya README'de tutulmamalıdır. `.env` Git tarafından ignore edilir.
 
-### 3. Migration'lari uygulama
+
+
+#### 3. API + PostgreSQL'i başlatma
+
+```bash
+docker compose up --build -d
+```
+
+Compose akışı:
+
+```text
+PostgreSQL container
+  -> pg_isready healthcheck
+  -> API container
+  -> startup migration
+  -> optional demo seed
+  -> /api/health
+```
+
+Docker Compose içinde:
+
+```text
+PostgreSQL: localhost:5432
+Web API:    http://localhost:5252
+Swagger:    http://localhost:5252/swagger
+Health:     http://localhost:5252/api/health
+```
+
+Container durumlarını kontrol etmek için:
+
+```bash
+docker compose ps
+```
+
+Sağlıklı durumda hem PostgreSQL hem API container'ının `healthy` olması beklenir.
+
+
+
+#### 4. Demo kullanıcılar
+
+`DEMO_DATA_SEED_ON_STARTUP=true` olduğunda Development ortamında aşağıdaki hesaplar idempotent olarak oluşturulur:
+
+|Rol|Email|Password|
+|-|-|-|
+|Employee|`employee.demo@example.com`|`.env` içindeki `DEMO_DATA_PASSWORD`|
+|Manager|`manager.demo@example.com`|`.env` içindeki `DEMO_DATA_PASSWORD`|
+|HR|`hr.demo@example.com`|`.env` içindeki `DEMO_DATA_PASSWORD`|
+
+
+
+Yukarıdaki `.env` örneği kullanıldıysa üç hesap için de local demo password'u `Demo123!` olur.
+
+Demo Employee, Demo Manager'in direct report'udur. Seeder tekrar çalıştırıldığında doğru mevcut kayıtları duplicate etmez veya password hash'lerini gereksiz yere değiştirmez.
+
+
+
+#### 5. Container loglarını izleme
+
+API logları:
+
+```bash
+docker compose logs -f api
+```
+
+Notification simulation approve/reject sonrasında structured log olarak bu akışta görülebilir.
+
+
+
+#### 6. Sistemi durdurma veya temiz reset
+
+Container'ları durdurup volume'u korumak için:
+
+```bash
+docker compose down
+```
+
+Tamamen temiz veritabanı ile yeniden başlamak için:
+
+```bash
+docker compose down -v
+docker compose up --build -d
+```
+
+`down -v` PostgreSQL volume'unu siler. Sonraki startup'ta migration ve Development demo seeding yeniden çalışır.
+
+
+
+### Seçenek B - Docker Dışında Web API'yi Local Çalıştırma
+
+
+
+API'yi `dotnet run` ile çalıştırmak isterseniz PostgreSQL'i ayrı olarak başlatabilirsiniz:
+
+```bash
+docker compose up -d postgres
+```
+
+`appsettings.Development.json` local PostgreSQL için `localhost:5432 / leave_management_db / postgres` development connection string'ini içerir.
+
+Startup migration varsayılan olarak kapalı olduğu için migration'ları manuel uygulayın:
 
 ```bash
 dotnet ef database update --project src/LeaveManagementSystem.Infrastructure --startup-project src/LeaveManagementSystem.WebAPI
 ```
 
-Migration'lar temel tablolarla birlikte authentication icin gerekli `UserAccounts` tablosunu da olusturur.
+JWT signing key'i repository dışında tanımlayın. Örneğin user secrets:
 
-### 4. JWT configuration'i ayarlama
-
-Development ortaminda gerekli JWT alanlari environment variable veya user secrets ile tanimlanmalidir.
-
-Ornek configuration yapisi:
-
-```json
-{
-  "Jwt": {
-    "Issuer": "LeaveManagementSystem",
-    "Audience": "LeaveManagementSystem.Client",
-    "SigningKey": "<en-az-32-byte-guclu-ve-gizli-signing-key>",
-    "AccessTokenExpirationMinutes": 60
-  }
-}
+```bash
+dotnet user-secrets set "Jwt:SigningKey" "local-development-jwt-signing-key-at-least-32-bytes-2026" --project src/LeaveManagementSystem.WebAPI
 ```
 
-Ornekteki signing key gercek bir production credential degildir.
+Local `dotnet run` akışı `.env` dosyasını otomatik olarak okumaz. Demo seeding'i Docker dışında da kullanmak isterseniz configuration'i environment variable veya user secrets ile açıkça verin:
 
-### 5. Web API'yi calistirma
+```bash
+dotnet user-secrets set "DemoData:SeedOnStartup" "true" --project src/LeaveManagementSystem.WebAPI
+dotnet user-secrets set "DemoData:Password" "Demo123!" --project src/LeaveManagementSystem.WebAPI
+```
+
+Ardından:
 
 ```bash
 dotnet run --project src/LeaveManagementSystem.WebAPI --launch-profile http
 ```
 
-Uygulama calistiktan sonra Swagger UI asagidaki adresten acilabilir:
+Swagger:
 
 ```text
 http://localhost:5252/swagger
 ```
 
-Uygulama farkli bir portta baslarsa terminalde gorunen URL kullanilmali ve sonuna `/swagger` eklenmelidir.
+Health endpoint:
 
-### 6. Ilk UserAccount notu
-
-Login yapabilmek icin veritabaninda:
-
-- Aktif bir `Employee`
-- Bu Employee'ye bagli aktif bir `UserAccount`
-- Gecerli `PasswordHash`
-
-bulunmalidir.
-
-Plain-text password veya production JWT secret seed edilmez. Ilk kullanici/bootstrap islemi development ya da deployment ortaminda kontrollu olarak yapilmalidir.
+```text
+http://localhost:5252/api/health
+```
 
 ---
 
-## Authentication ve Swagger Kullanimi
+## Authentication ve Swagger Kullanımı
 
 ### Login
 
@@ -562,12 +843,12 @@ Request body:
 
 ```json
 {
-  "email": "hr@example.com",
-  "password": "<password>"
+  "email": "hr.demo@example.com",
+  "password": "<DEMO_DATA_PASSWORD>"
 }
 ```
 
-Basarili response alanlari:
+Başarılı response alanları:
 
 ```json
 {
@@ -575,12 +856,12 @@ Basarili response alanlari:
   "expiresAtUtc": "2026-08-06T18:00:00Z",
   "userAccountId": "11111111-1111-1111-1111-111111111111",
   "employeeId": "22222222-2222-2222-2222-222222222222",
-  "email": "hr@example.com",
+  "email": "hr.demo@example.com",
   "role": 3
 }
 ```
 
-Role degerleri:
+Role değerleri:
 
 ```text
 1 = Employee
@@ -588,16 +869,18 @@ Role degerleri:
 3 = HR
 ```
 
-Email bulunamamasi, password'un yanlis olmasi, UserAccount'in pasif olmasi veya Employee'nin pasif olmasi durumlarinda public response ayni genel `401 Unauthorized` kontratini kullanir.
+Email bulunamaması, password'un yanlış olması, UserAccount'in pasif olması veya Employee'nin pasif olması durumlarında public response aynı genel `401 Unauthorized` kontratını kullanır.
+
+
 
 ### Swagger Authorize
 
-1. `/api/auth/login` endpoint'i ile token alin.
-2. Swagger UI icindeki `Authorize` butonunu acin.
-3. Access token'i Bearer authentication alanina girin.
-4. Protected endpointleri kullanici rolune ve resource scope'una gore test edin.
+1. `/api/auth/login` endpoint'i ile token alın.
+2. Swagger UI içindeki `Authorize` butonunu açın.
+3. Access token'i Bearer authentication alanına girin.
+4. Protected endpointleri kullanıcı rolüne ve resource scope'una göre test edin.
 
-HTTP header ornegi:
+HTTP header örneği:
 
 ```text
 Authorization: Bearer <jwt-access-token>
@@ -605,51 +888,59 @@ Authorization: Bearer <jwt-access-token>
 
 ---
 
+
+
 ## API Endpointleri
 
 ### Health ve Authentication
 
-| Method | Endpoint | Erisim | Aciklama |
-|---|---|---|---|
-| GET | `/api/health` | Anonymous | API saglik kontrolu |
-| POST | `/api/auth/login` | Anonymous | Email ve password ile JWT access token uretir |
+|Method|Endpoint|Erişim|Açıklama|
+|-|-|-|-|
+|GET|`/api/health`|Anonymous|API ve PostgreSQL bağlantısını doğrulayan health check|
+|POST|`/api/auth/login`|Anonymous|Email ve password ile JWT access token üretir|
 
 ### Employees
 
-| Method | Endpoint | Erisim | Aciklama |
-|---|---|---|---|
-| GET | `/api/employees` | HR | Calisanlari listeler |
-| GET | `/api/employees/{id}` | HR | Id'ye gore calisan getirir |
-| POST | `/api/employees` | HR | Yeni calisan olusturur |
-| PUT | `/api/employees/{id}` | HR | Calisan bilgilerini gunceller |
-| DELETE | `/api/employees/{id}` | HR | Calisani soft delete ile pasif hale getirir |
+|Method|Endpoint|Erişim|Açıklama|
+|-|-|-|-|
+|GET|`/api/employees`|HR|Çalışanları listeler|
+|GET|`/api/employees/{id}`|HR|Id'ye göre çalışan getirir|
+|POST|`/api/employees`|HR|Yeni çalışan oluşturur|
+|PUT|`/api/employees/{id}`|HR|Çalışan bilgilerini günceller|
+|DELETE|`/api/employees/{id}`|HR|Çalışanı soft delete ile pasif hale getirir|
 
 ### Leave Requests
 
-| Method | Endpoint | Erisim | Aciklama |
-|---|---|---|---|
-| GET | `/api/leave-requests` | Authenticated, role scope | Employee/Manager/HR icin yetkili koleksiyon kapsamini dondurur |
-| GET | `/api/leave-requests/mine` | Authenticated | Current employee'nin kendi izin taleplerini dondurur |
-| GET | `/api/leave-requests/calendar` | Authenticated, role scope | Tarih araligiyla kesisen izin taleplerini takvim response'u olarak dondurur |
-| GET | `/api/leave-requests/{id}` | Authenticated, resource scope | Id'ye gore yetkili izin talebini getirir |
-| POST | `/api/leave-requests` | Authenticated, self-service scope | Yeni izin talebi olusturur |
-| PUT | `/api/leave-requests/{id}` | Authenticated, ownership scope | Pending izin talebini gunceller |
-| DELETE | `/api/leave-requests/{id}` | Authenticated, ownership scope | Pending izin talebini siler |
-| GET | `/api/leave-requests/balance` | Authenticated, self-service scope | Current employee'nin belirli yil ve izin turu icin izin bakiyesini getirir |
-| POST | `/api/leave-requests/{id}/approve` | Manager, direct-report scope | Izin talebini authenticated direct manager olarak onaylar |
-| POST | `/api/leave-requests/{id}/reject` | Manager, direct-report scope | Izin talebini authenticated direct manager olarak reddeder |
+|Method|Endpoint|Erişim|Açıklama|
+|-|-|-|-|
+|GET|`/api/leave-requests`|Authenticated, role scope|Employee/Manager/HR için yetkili koleksiyon kapsamını döndürür|
+|GET|`/api/leave-requests/mine`|Authenticated|Current employee'nin kendi izin taleplerini döndürür|
+|GET|`/api/leave-requests/calendar`|Authenticated, role scope|Tarih aralığıyla kesişen izin taleplerini takvim response'u olarak döndürür|
+|GET|`/api/leave-requests/{id}`|Authenticated, resource scope|Id'ye göre yetkili izin talebini getirir|
+|POST|`/api/leave-requests`|Authenticated, self-service scope|Yeni izin talebi oluşturur|
+|PUT|`/api/leave-requests/{id}`|Authenticated, ownership scope|Pending izin talebini günceller|
+|DELETE|`/api/leave-requests/{id}`|Authenticated, ownership scope|Pending izin talebini siler|
+|GET|`/api/leave-requests/balance`|Authenticated, self-service scope|Current employee'nin belirli yıl ve izin türü için izin bakiyesini getirir|
+|POST|`/api/leave-requests/{id}/approve`|Manager, direct-report scope|İzin talebini authenticated direct manager olarak onaylar|
+|POST|`/api/leave-requests/{id}/reject`|Manager, direct-report scope|İzin talebini authenticated direct manager olarak reddeder|
 
 ### Reports
 
-| Method | Endpoint | Erisim | Aciklama |
-|---|---|---|---|
-| GET | `/api/reports/department-leave-statistics` | HR | Approved izinleri guncel departmana gore gruplayan istatistik raporunu dondurur |
+|Method|Endpoint|Erişim|Açıklama|
+|-|-|-|-|
+|GET|`/api/reports/department-leave-statistics`|HR|Approved izinleri güncel departmana göre gruplayan istatistik raporunu döndürür|
+
+
 
 ---
 
-## Ornek Request ve Response'lar
+## Örnek Request ve Response'lar
 
-### Employee Olusturma
+
+
+### Employee Oluşturma
+
+
 
 ```json
 {
@@ -662,9 +953,13 @@ Authorization: Bearer <jwt-access-token>
 }
 ```
 
-Employee administration endpointleri yalniz HR tarafindan kullanilabilir.
+Employee administration endpointleri yalnız HR tarafından kullanılabilir.
 
-### LeaveRequest Olusturma
+
+
+### LeaveRequest Oluşturma
+
+
 
 ```json
 {
@@ -675,11 +970,15 @@ Employee administration endpointleri yalniz HR tarafindan kullanilabilir.
 }
 ```
 
-`employeeId` request body'den alinmaz. Izin talebinin sahibi, dogrulanmis JWT uzerinden bulunan current Employee'dir. UserAccount ve bagli Employee aktif olmalidir. Varsayilan LeaveType kayitlari migration ile otomatik eklenir.
+`employeeId` request body'den alınmaz. İzin talebinin sahibi, doğrulanmış JWT üzerinden bulunan current Employee'dir. UserAccount ve bağlı Employee aktif olmalıdır. Varsayılan LeaveType kayıtları migration ile otomatik eklenir.
+
+
 
 ### LeaveRequest Approve
 
-Reviewer identity request body'den alinmaz. Authenticated Manager'in current Employee ID'si kullanilir.
+Reviewer identity request body'den alınmaz. Authenticated Manager'in current Employee ID'si kullanılır.
+
+
 
 ```json
 {
@@ -689,6 +988,8 @@ Reviewer identity request body'den alinmaz. Authenticated Manager'in current Emp
 
 ### LeaveRequest Reject
 
+
+
 ```json
 {
   "managerComment": "Rejected by direct manager."
@@ -697,13 +998,19 @@ Reviewer identity request body'den alinmaz. Authenticated Manager'in current Emp
 
 ### Leave Balance Sorgusu
 
+
+
 ```http
 GET /api/leave-requests/balance?leaveTypeId=10000000-0000-0000-0000-000000000001&year=2026
 ```
 
-`employeeId` query parameter olarak alinmaz. Bakiye, dogrulanmis JWT uzerinden bulunan current Employee icin hesaplanir.
+`employeeId` query parameter olarak alınmaz. Bakiye, doğrulanmış JWT üzerinden bulunan current Employee için hesaplanır.
 
-Ornek response:
+
+
+Örnek response:
+
+
 
 ```json
 {
@@ -719,26 +1026,32 @@ Ornek response:
 
 ### Calendar Sorgusu
 
+
+
 ```http
 GET /api/leave-requests/calendar?startDate=2026-08-01&endDate=2026-08-31
 ```
 
 Kurallar:
 
-- Baslangic ve bitis tarihleri inclusive'dir.
-- Ters tarih araligi `400 Bad Request` ile reddedilir.
-- Employee yalniz kendi kayitlarini gorur.
-- Manager yalniz guncel ve aktif direct report kayitlarini gorur.
-- HR tarih araligiyla kesisen genis kayit kapsamini gorebilir.
-- Scope filtreleri PostgreSQL sorgusunda uygulanir.
+* Başlangıç ve bitiş tarihleri inclusive'dir.
+* Ters tarih aralığı `400 Bad Request` ile reddedilir.
+* Employee yalnız kendi kayıtlarını görür.
+* Manager yalnız güncel ve aktif direct report kayıtlarını görür.
+* HR tarih aralığıyla kesişen geniş kayıt kapsamını görebilir.
+* Scope filtreleri PostgreSQL sorgusunda uygulanır.
 
-### Departman Izin Istatistikleri
+
+
+### Departman İzin İstatistikleri
+
+
 
 ```http
 GET /api/reports/department-leave-statistics
 ```
 
-Ornek response:
+Örnek response:
 
 ```json
 [
@@ -752,51 +1065,63 @@ Ornek response:
 ]
 ```
 
-Ornek GUID yalniz dokumantasyon verisidir.
+Örnek GUID yalnız dokümantasyon verisidir.
 
-Rapor kurallari:
+Rapor kuralları:
 
-- Yalniz HR erisebilir.
-- Endpoint parametre almaz.
-- Yalniz Approved talepler hesaplanir.
-- Pending ve Rejected talepler dahil edilmez.
-- Gruplama Employee'nin sorgu anindaki guncel departmanina gore yapilir.
-- Onayli talebi bulunmayan departmanlar listelenmez.
-
----
-
-## Hata Davranislari
-
-| Durum | HTTP Status | Aciklama |
-|---|---|---|
-| FluentValidation veya is kurali hatasi | `400 Bad Request` | Ornegin gecersiz tarih araligi, bakiye yetersizligi, overlap veya gecersiz lifecycle islemi |
-| Token yok veya token gecersiz | `401 Unauthorized` | Authentication basarisiz |
-| Gecerli token fakat role, policy veya active-state kontrolu basarisiz | `403 Forbidden` | Ornegin HR review denemesi, inactive account veya token/DB role uyumsuzlugu |
-| Kaynak bulunamadi | `404 Not Found` | Istenen kayit gercekten mevcut degil |
-| Kaynak kullanicinin resource scope'u disinda | `404 Not Found` | Kaydin varligini yetkisiz kullaniciya sizdirmamak icin |
-| Login bilgileri gecersiz veya hesap kullanilamaz durumda | `401 Unauthorized` | Email/password/account durumu ayrintisi public response'ta aciklanmaz |
-
-API, validation ve business-rule hatalarinda standart ProblemDetails tabanli response'lar kullanir.
+* Yalnız HR erişebilir.
+* Endpoint parametre almaz.
+* Yalnız Approved talepler hesaplanır.
+* Pending ve Rejected talepler dahil edilmez.
+* Gruplama Employee'nin sorgu anındaki güncel departmanına göre yapılır.
+* Onaylı talebi bulunmayan departmanlar listelenmez.
 
 ---
 
-## Testleri Calistirma
 
-Tum solution testlerini calistirmak icin:
+
+## Hata Davranışları
+
+|Durum|HTTP Status|Açıklama|
+|-|-|-|
+|FluentValidation veya iş kuralı hatası|`400 Bad Request`|Örneğin geçersiz tarih aralığı, bakiye yetersizliği, overlap veya geçersiz lifecycle işlemi|
+|Token yok veya token geçersiz|`401 Unauthorized`|Authentication başarısız|
+|Geçerli token fakat role, policy veya active-state kontrolü başarısız|`403 Forbidden`|Örneğin HR review denemesi, inactive account veya token/DB role uyumsuzluğu|
+|Kaynak bulunamadı|`404 Not Found`|İstenen kayıt gerçekten mevcut değil|
+|Kaynak kullanıcının resource scope'u dışında|`404 Not Found`|Kaydın varlığını yetkisiz kullanıcıya sızdırmamak için|
+|Login bilgileri geçersiz veya hesap kullanılamaz durumda|`401 Unauthorized`|Email/password/account durumu ayrıntısı public response'ta açıklanmaz|
+
+API, validation ve business-rule hatalarında standart ProblemDetails tabanlı response'lar kullanır.
+
+---
+
+
+
+## Testleri Çalıştırma
+
+
+
+Tüm solution testlerini çalıştırmak için:
+
+
 
 ```bash
 dotnet test
 ```
 
-Restore islemi daha once tamamlandiysa:
+Restore işlemi daha önce tamamlandıysa:
+
+
 
 ```bash
 dotnet test --no-restore
 ```
 
-Integration testler ayri `leave_management_test_db` PostgreSQL veritabani uzerinden calisir. Testler sirasinda gerekli migration'lar test veritabanina uygulanir.
+Integration testler ayrı `leave_management_test_db` PostgreSQL veritabanı üzerinden çalışır. Test startup'i production `AppDbContext` options configuration'ını kontrollü olarak override eder, test connection string'ini kullanır ve audit interceptor'i test pipeline'ına bir kez bağlar. Gerekli migration'lar test veritabanına uygulanır.
 
-Tam local kontrol icin:
+Tam local kontrol için:
+
+
 
 ```bash
 dotnet build --no-restore
@@ -805,72 +1130,88 @@ git diff --check
 git status
 ```
 
-Son kesin dogrulanan full-suite sonucu:
+Son kesin doğrulanan full-suite sonucu:
 
 ```text
-524 total
-524 succeeded
+529 total
+529 succeeded
 0 failed
 0 skipped
 Build succeeded
 git diff --check clean
-working tree clean
 ```
 
-Test turleri:
+Test türleri:
 
-- Application handler ve validator unit testleri
-- Domain ve business-order testleri
-- Infrastructure password hashing, JWT options validation ve token generation unit testleri
-- WebAPI authorization/result/exception handler unit testleri
-- Gercek HTTP pipeline integration testleri
-- Gercek PostgreSQL repository ve aggregate sorgu testleri
-- JWT login ve bearer validation testleri
-- Employee/Manager/HR authorization matrix testleri
-- Calendar/date-range scope testleri
-- Department reporting aggregate testleri
-- Swagger/OpenAPI authentication ve security metadata testleri
+* Application handler ve validator unit testleri
+* Domain ve business-order testleri
+* Infrastructure password hashing, JWT options validation, token generation ve DemoData options validation unit testleri
+* WebAPI authorization/result/exception handler unit testleri
+* Gerçek HTTP pipeline integration testleri
+* Gerçek PostgreSQL repository ve aggregate sorgu testleri
+* JWT login ve bearer validation testleri
+* Employee/Manager/HR authorization matrix testleri
+* Calendar/date-range scope testleri
+* Department reporting aggregate testleri
+* Swagger/OpenAPI authentication ve security metadata testleri
+* DemoData seeding ve idempotency integration testi
+* Audit trail scope/action/actor/changed-property integration testi
 
-Test edilen ana senaryolardan bazilari:
+Test edilen ana senaryolardan bazıları:
 
-- Employee ve LeaveRequest CRUD
-- Validation pipeline ve ProblemDetails
-- Overlap rejection
-- Balance calculation
-- Cross-year balance allocation
-- Remaining balance kontrolu
-- Direct manager approval ve rejection
-- Reviewer identity'nin claims/current-user'dan turetilmesi
-- Non-direct manager, Employee ve HR review yasaklari
-- UserAccount ve Employee active-state kontrolleri
-- Token/DB role mismatch
-- Missing/invalid token davranisi
-- Employee own scope
-- Manager active direct-report scope
-- HR genis read ve reporting scope'u
-- Scope disi tekil resource icin 404
-- Default ve fallback authorization
-- Inclusive calendar overlap
-- Gecersiz calendar tarih araligi
-- Approved-only department grouping
-- Department count, total ve average hesaplari
-- Onayli talebi olmayan departmanin rapordan dislanmasi
-- Swagger Bearer security metadata'si
-- EF Core/Npgsql sorgularinin gercek PostgreSQL tarafinda calismasi
+* Employee ve LeaveRequest CRUD
+* Validation pipeline ve ProblemDetails
+* Overlap rejection
+* Balance calculation
+* Cross-year balance allocation
+* Remaining balance kontrolü
+* Direct manager approval ve rejection
+* Reviewer identity'nin claims/current-user'dan türetilmesi
+* Non-direct manager, Employee ve HR review yasakları
+* UserAccount ve Employee active-state kontrolleri
+* Token/DB role mismatch
+* Missing/invalid token davranışı
+* Employee own scope
+* Manager active direct-report scope
+* HR geniş read ve reporting scope'u
+* Scope dışı tekil resource için 404
+* Default ve fallback authorization
+* Inclusive calendar overlap
+* Geçersiz calendar tarih aralığı
+* Approved-only department grouping
+* Department count, total ve average hesapları
+* Onaylı talebi olmayan departmanın rapordan dışlanması
+* Swagger Bearer security metadata'sı
+* EF Core/Npgsql sorgularinin gerçek PostgreSQL tarafında çalışması
+* Demo seeding açıkken password configuration zorunluluğu
+* Demo Employee/Manager/HR kayıtları ve direct-manager ilişkisi
+* Repeated demo seed sonrasında duplicate/ID/hash/timestamp değişmemesi
+* Approve/Reject success sonrasında notification'in tam bir kez üretilmesi
+* Business-rule veya SaveChanges failure durumunda notification üretilmemesi
+* Audit'in yalnız Employee ve LeaveRequest kapsamında kalması
+* Create/Update/Delete/Approve/Reject audit action'ları
+* Authenticated request actor EmployeeId ve system context actor `null` davranışı
+* Audit changed-properties alanında değer yerine yalnız property isimlerinin tutulması
 
 ---
 
-## Gelistirme Workflow'u
 
-Projede branch bazli gelistirme akisi kullanilir.
+
+## Geliştirme Workflow'u
+
+
+
+Projede branch bazlı geliştirme akışı kullanılır.
+
+
 
 ```text
 main      -> stabil branch
-develop   -> tamamlanan feature'larin birlestigi gelistirme branch'i
-feature/* -> belirli kapsam icin acilan branch'ler
+develop   -> tamamlanan feature'ların birleştiği geliştirme branch'i
+feature/* -> belirli kapsam için açılan branch'ler
 ```
 
-Tipik gelistirme akisi:
+Tipik geliştirme akışı:
 
 ```text
 develop
@@ -878,111 +1219,104 @@ develop
     -> implementation
       -> targeted build/test
         -> full build/test
-          -> git diff/status kontrolu
+          -> git diff/status kontrolü
             -> commit ve push
-              -> develop icine merge
+              -> develop içine merge
 ```
 
 Temel kurallar:
 
-- Basarili build ve test sonucu gorulmeden commit atilmaz.
-- `git diff --check` temiz olmadan commit atilmaz.
-- Untracked dosyalar dahil degisen dosya kapsami kontrol edilir.
-- Her commit tek bir anlamli konuyu kapsar.
-- Ilgisiz refactor ayni feature commit'ine eklenmez.
-- Migration yalniz entity/configuration/schema degisikliginde olusturulur.
-- Provider-specific EF Core sorgulari gercek PostgreSQL integration testiyle dogrulanir.
-- `main` her kucuk gelistirme icin kullanilmaz; stabil surum hazirliginda guncellenir.
+* Başarılı build ve test sonucu görülmeden commit atılmaz.
+* `git diff --check` temiz olmadan commit atılmaz.
+* Untracked dosyalar dahil değişen dosya kapsamı kontrol edilir.
+* Her commit tek bir anlamlı konuyu kapsar.
+* İlgisiz refactor aynı feature commit'ine eklenmez.
+* Migration yalnız entity/configuration/schema değişikliğinde oluşturulur.
+* Provider-specific EF Core sorguları gerçek PostgreSQL integration testiyle doğrulanır.
+* `main` her küçük geliştirme için kullanılmaz; stabil sürüm hazırlığında güncellenir.
 
 ---
 
-## Faz 1 Dogrulama
+## Faz 1 Doğrulama
 
-Faz 1 kapsaminda asagidaki kontroller tamamlanmistir:
+Faz 1 kapsamında aşağıdaki kontroller tamamlanmıştır:
 
-- Employee CRUD endpointleri Swagger UI uzerinden manuel olarak test edildi.
-- LeaveRequest CRUD endpointleri Swagger UI uzerinden manuel olarak test edildi.
-- Employee ve LeaveRequest CRUD integration testleri basariyla calisti.
-- PostgreSQL baglantisi dogrulandi.
-- Initial migration basariyla uygulandi.
-- Varsayilan LeaveType seed data migration ile eklendi.
-- Testler ayri `leave_management_test_db` veritabani uzerinden calistirildi.
-- Local test verileri manuel testlerden sonra temizlendi.
-- `dotnet build` basarili calisti.
-- `dotnet test` basarili calisti.
-- `git diff --check` temiz sonuc verdi.
-- Git working tree temiz olarak dogrulandi.
-
----
-
-## Faz 2 Dogrulama
-
-Faz 2 kapsaminda asagidaki kontroller tamamlanmistir:
-
-- Leave balance endpointi test edildi.
-- Approve ve reject endpointleri direct manager ile dogrulandi.
-- Non-direct manager, Employee ve HR review denemeleri reddedildi.
-- Overlap senaryosu `400 Bad Request` ile reddedildi.
-- Yetersiz balance senaryosu `400 Bad Request` ile reddedildi.
-- Yetki hatalari `403 Forbidden` olarak dogrulandi.
-- Cross-year leave balance mantigi integration test ile dogrulandi.
-- Approved/Rejected lifecycle guard kurallari test edildi.
-- Rejected request status-aware overlap davranisi test edildi.
-- Zero allowance davranisi test edildi.
-- CQRS'e tasinmadan onceki urun davranislari testlerle sabitlendi.
-- Faz 2 davranislari Faz 3 CQRS gecisinden sonra da regresyon testleriyle korundu.
+* Employee CRUD endpointleri Swagger UI üzerinden manuel olarak test edildi.
+* LeaveRequest CRUD endpointleri Swagger UI üzerinden manuel olarak test edildi.
+* Employee ve LeaveRequest CRUD integration testleri başarıyla çalıştı.
+* PostgreSQL bağlantısı doğrulandı.
+* Initial migration başarıyla uygulandı.
+* Varsayılan LeaveType seed data migration ile eklendi.
+* Testler ayrı `leave_management_test_db` veritabanı üzerinden çalıştırıldı.
+* Local test verileri manuel testlerden sonra temizlendi.
+* `dotnet build` başarılı çalıştı.
+* `dotnet test` başarılı çalıştı.
+* `git diff --check` temiz sonuç verdi.
+* Git working tree temiz olarak doğrulandı.
 
 ---
 
-## Faz 3 Dogrulama
+## Faz 2 Doğrulama
 
-Faz 3 kapsaminda asagidaki kontroller tamamlanmistir:
+Faz 2 kapsamında aşağıdaki kontroller tamamlanmıştır:
 
-- Employee ve LeaveRequest use-case'lerinin CQRS/MediatR uzerinden calistigi dogrulandi.
-- Controller'larin `ISender` kullandigi ve legacy service yollarinin temizlendigi dogrulandi.
-- FluentValidation pipeline'i unit ve HTTP integration testleriyle dogrulandi.
-- Login endpointinin JWT access token ve role bilgisi dondurdugu dogrulandi.
-- Infrastructure unit testleriyle password hashing, verification, rehash-needed, JWT options validation ve token generation akislari test edildi.
-- JWT signature, issuer, audience, lifetime ve required claim kontrolleri test edildi.
-- Tokensiz veya gecersiz token ile protected endpoint erisimi engellendi.
-- UserAccount/Employee active-state ve token/DB role uyumu dogrulandi.
-- Employee, Manager ve HR authorization policy'leri test edildi.
-- Reviewer identity'nin request body yerine claims/current-user'dan turetildigi dogrulandi.
-- Default/fallback authorization ve `[AllowAnonymous]` metadata'si test edildi.
-- Calendar sorgusunun inclusive overlap ve role-scope davranislari test edildi.
-- Department raporunun Approved-only grouping, count, total, average ve siralama davranislari gercek PostgreSQL ile dogrulandi.
-- Swagger Bearer security metadata'si test edildi.
-- Son full-suite sonucu `524/524` basarili olarak dogrulandi.
-- `git diff --check` temiz sonuc verdi.
-- Department reporting final commit'i sonrasinda feature branch'in remote ile esit ve working tree'nin temiz oldugu dogrulandi.
+* Leave balance endpointi test edildi.
+* Approve ve reject endpointleri direct manager ile doğrulandı.
+* Non-direct manager, Employee ve HR review denemeleri reddedildi.
+* Overlap senaryosu `400 Bad Request` ile reddedildi.
+* Yetersiz balance senaryosu `400 Bad Request` ile reddedildi.
+* Yetki hataları `403 Forbidden` olarak doğrulandı.
+* Cross-year leave balance mantığı integration test ile doğrulandı.
+* Approved/Rejected lifecycle guard kuralları test edildi.
+* Rejected request status-aware overlap davranışı test edildi.
+* Zero allowance davranışı test edildi.
+* CQRS'e taşınmadan önceki ürün davranışları testlerle sabitlendi.
+* Faz 2 davranışları Faz 3 CQRS geçişinden sonra da regresyon testleriyle korundu.
 
 ---
 
-## Bilinen Kapsam Sinirlari ve Sonraki Adimlar
+## Faz 3 Doğrulama
 
-Faz 3 kapsaminda bilincli olarak eklenmeyenler:
+Faz 3 kapsamında aşağıdaki kontroller tamamlanmıştır:
 
-- Department report icin tarih veya yil filtresi
-- LeaveType bazli raporlama
-- Calisan detay raporu
-- Tarihsel departman snapshot sistemi
-- Dashboard veya grafik
-- CSV, Excel veya PDF export
-- Pagination
-- Cache
-- Audit log
-- Notification sistemi
+* Employee ve LeaveRequest use-case'lerinin CQRS/MediatR üzerinden çalıştığı doğrulandı.
+* Controller'ların `ISender` kullandığı ve legacy service yollarının temizlendiği doğrulandı.
+* FluentValidation pipeline'i unit ve HTTP integration testleriyle doğrulandı.
+* Login endpointinin JWT access token ve role bilgisi döndürdüğü doğrulandı.
+* Infrastructure unit testleriyle password hashing, verification, rehash-needed, JWT options validation ve token generation akışları test edildi.
+* JWT signature, issuer, audience, lifetime ve required claim kontrolleri test edildi.
+* Tokensiz veya geçersiz token ile protected endpoint erişimi engellendi.
+* UserAccount/Employee active-state ve token/DB role uyumu doğrulandı.
+* Employee, Manager ve HR authorization policy'leri test edildi.
+* Reviewer identity'nin request body yerine claims/current-user'dan türetildiği doğrulandı.
+* Default/fallback authorization ve `[AllowAnonymous]` metadata'sı test edildi.
+* Calendar sorgusunun inclusive overlap ve role-scope davranışları test edildi.
+* Department raporunun Approved-only grouping, count, total, average ve sıralama davranışları gerçek PostgreSQL ile doğrulandı.
+* Swagger Bearer security metadata'sı test edildi.
+* Son full-suite sonucu `524/524` başarılı olarak doğrulandı.
+* `git diff --check` temiz sonuç verdi.
+* Department reporting final commit'i sonrasında feature branch'in remote ile eşit ve working tree'nin temiz olduğu doğrulandı.
 
-Gerçekleştirilmesi planlanan urun ve teknik kararlar:
+---
 
-- Ilk UserAccount/bootstrap akisi deployment seviyesinde ayrica netlestirilmelidir.
-- Production JWT signing key repository disinda guvenli tutulmalidir.
-- Token claim'leri tek basina authoritative yapilmamalidir; guncel DB state kontrolu korunmalidir.
-- Reviewer EmployeeId tekrar public request body'ye eklenmemelidir.
-- Calendar tarihleri `DateOnly` ve inclusive overlap mantigini korumalidir.
-- Departman raporu mevcut calisan departmanina gore grouping yapar; tarihsel raporlama ayri feature'dir.
-- Ortalama icin belirli ondalik basamak veya rounding kuralina ihtiyac duyulursa acik urun karari ve test eklenmelidir.
-- Employee delete soft delete, Pending LeaveRequest delete ise mevcut kontratta fiziksel delete'tir.
-- LeaveRequest audit veya soft-delete ihtiyaci ayri hardening ozelligi olarak ele alinmalidir.
-- Manager hierarchy ve cycle kurallari yeni degisikliklerde korunmalidir.
-- Migration yalniz gercek schema degisikliginde olusturulmalidir.
+## Faz 4 Doğrulama
+
+Faz 4 kapsamında aşağıdaki kontroller tamamlanmıştır:
+
+* Multi-stage Docker image başarıyla build edildi.
+* Docker Compose ile PostgreSQL ve Web API birlikte ayağa kaldırıldı.
+* PostgreSQL `pg_isready` healthcheck'i ve API `/api/health` healthcheck'i doğrulandı.
+* `/api/health` endpoint'inin PostgreSQL bağlantısını da kontrol ettiği doğrulandı.
+* Startup migration'in temiz veritabanı üzerinde kontrollü olarak çalıştığı doğrulandı.
+* Migration retry davranışı global EF Core retry'dan ayrıldı ve mevcut explicit transaction testleri korunarak full suite tekrar yeşile getirildi.
+* `.env` dosyasının Git dışında kaldığı ve `.env.example` içinde yalnız placeholder/configuration alanları bulunduğu doğrulandı.
+* DemoData configuration validation test edildi.
+* Demo Employee, Manager ve HR kullanıcılarının gerçek Docker ortamında login olabildiği doğrulandı.
+* Demo seeder gerçek PostgreSQL üzerinde iki kez çalıştırılarak idempotency, ID/hash/timestamp korunumu ve direct-manager ilişkisi test edildi.
+* Notification logging approve ve reject için başarılı persistence sonrasında tam bir kez çalışacak şekilde test edildi.
+* Business-rule failure ve `SaveChangesAsync` failure durumlarında notification üretilmediği test edildi.
+* Audit interceptor'in production ve integration-test EF Core pipeline'ına doğru bağlandığı doğrulandı.
+* `AddAuditLogs` migration'inin yalnız `AuditLogs` tablosu/index'lerini eklediği ve `ActorEmployeeId` için FK oluşturmadığı kontrol edildi.
+* Audit behavior gerçek PostgreSQL integration testiyle actor, action, scope, timestamp ve changed-properties bazında doğrulandı.
+* Son full-suite sonucu `529/529` başarılı olarak doğrulandı.
+* `dotnet build` başarılı ve `git diff --check` temiz olarak doğrulandı.
