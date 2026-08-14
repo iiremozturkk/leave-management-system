@@ -7,8 +7,8 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LeaveManagementSystem.Application.UnitTests/LeaveManagementSystem.Application.UnitTests.csproj" />
+    <Project Path="tests/LeaveManagementSystem.Infrastructure.UnitTests/LeaveManagementSystem.Infrastructure.UnitTests.csproj" Id="d07b9498-20fa-4c9a-a42b-3c10626f0cba" />
     <Project Path="tests/LeaveManagementSystem.IntegrationTests/LeaveManagementSystem.IntegrationTests.csproj" />
     <Project Path="tests/LeaveManagementSystem.WebAPI.UnitTests/LeaveManagementSystem.WebAPI.UnitTests.csproj" />
   </Folder>
-  <Project Path="tests/LeaveManagementSystem.Infrastructure.UnitTests/LeaveManagementSystem.Infrastructure.UnitTests.csproj" Id="d07b9498-20fa-4c9a-a42b-3c10626f0cba" />
 </Solution>

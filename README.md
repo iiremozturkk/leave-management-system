@@ -660,7 +660,7 @@ Final demo ve hızlı kurulum için önerilen yol budur.
 #### 1. Repository'yi klonlama
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/iiremozturkk/leave-management-system.git
 cd leave-management-system
 ```
 

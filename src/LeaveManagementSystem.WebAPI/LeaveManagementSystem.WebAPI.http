@@ -1,6 +1,24 @@
-@LeaveManagementSystem.WebAPI_HostAddress = http://localhost:5252
+@host = http://localhost:5252
+@demoPassword = replace-with-local-demo-password
+@accessToken = paste-jwt-access-token-here
 
-GET {{LeaveManagementSystem.WebAPI_HostAddress}}/weatherforecast/
+### Health
+
+GET {{host}}/api/health
 Accept: application/json
 
-###
+### Login as demo Employee
+
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "employee.demo@example.com",
+  "password": "{{demoPassword}}"
+}
+
+### Current employee leave requests
+
+GET {{host}}/api/leave-requests/mine
+Authorization: Bearer {{accessToken}}
+Accept: application/json

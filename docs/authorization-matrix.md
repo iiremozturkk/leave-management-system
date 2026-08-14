@@ -21,6 +21,8 @@ This document defines the authentication and authorization boundaries for Phase 
 |View all leave requests|401|403|403|Allowed|HR only|
 |Approve leave request|401|403|Allowed|403|Current active direct report|
 |Reject leave request|401|403|Allowed|403|Current active direct report|
+|View leave calendar|401|Own records|Active direct reports|All records|Role-scoped|
+|View department leave statistics|401|403|403|Allowed|HR only|
 
 ## HTTP Status Rules
 
